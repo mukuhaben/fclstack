@@ -1,0 +1,72 @@
+-- Additional tables for sales agent functionality
+
+-- Customer assignments to sales agents
+CREATE TABLE customer_assignments (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    sales_agent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    UNIQUE(customer_id, sales_agent_id)
+);
+
+-- Commission tracking
+CREATE TABLE commissions (
+    id SERIAL PRIMARY KEY,
+    sales_agent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    commission_rate DECIMAL(5,2) DEFAULT 5.00, -- percentage
+    commission_amount DECIMAL(10,2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    paid_at TIMESTAMP NULL
+);
+
+-- Sales targets for agents
+CREATE TABLE sales_targets (
+    id SERIAL PRIMARY KEY,
+    sales_agent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    target_amount DECIMAL(10,2) NOT NULL,
+    achieved_amount DECIMAL(10,2) DEFAULT 0.00, -- Added achieved amount tracking
+    target_period VARCHAR(20) DEFAULT 'monthly' CHECK (target_period IN ('weekly', 'monthly', 'quarterly', 'yearly')),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT true, -- Added active status
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Customer notes by sales agents
+CREATE TABLE customer_notes (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    sales_agent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    note TEXT NOT NULL,
+    is_important BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Added sales agent performance tracking
+CREATE TABLE sales_performance (
+    id SERIAL PRIMARY KEY,
+    sales_agent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    total_sales DECIMAL(10,2) DEFAULT 0.00,
+    total_orders INTEGER DEFAULT 0,
+    total_customers INTEGER DEFAULT 0,
+    total_commission DECIMAL(10,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sales_agent_id, period_start, period_end)
+);
+
+-- Create indexes for performance
+CREATE INDEX idx_customer_assignments_customer ON customer_assignments(customer_id);
+CREATE INDEX idx_customer_assignments_agent ON customer_assignments(sales_agent_id);
+CREATE INDEX idx_commissions_agent ON commissions(sales_agent_id);
+CREATE INDEX idx_commissions_order ON commissions(order_id);
+CREATE INDEX idx_commissions_status ON commissions(status); -- Added status index
+CREATE INDEX idx_sales_targets_agent ON sales_targets(sales_agent_id);
+CREATE INDEX idx_sales_targets_period ON sales_targets(start_date, end_date); -- Added period index
+CREATE INDEX idx_customer_notes_customer ON customer_notes(customer_id);
+CREATE INDEX idx_customer_notes_agent ON customer_notes(sales_agent_id);
+CREATE INDEX idx_sales_performance_agent ON sales_performance(sales_agent_id); -- Added performance index

@@ -1,0 +1,19 @@
+# Node
+node_modules/
+.env*
+dist/
+.vscode/
+.cache/
+
+# Vercel/Build Tools
+.vercel/
+.next/
+out/
+
+# Vite/Vercel Cleanup
+node_modules/
+.env*
+dist/
+.vercel/
+.cache/
+
