@@ -34,7 +34,7 @@ import {
   Card,
 } from "@mui/material"
 import { Add, Edit, Delete, MoreVert, Visibility, LocalShipping, Business, CalendarToday, AttachMoney } from "@mui/icons-material"
-import { adminAPI } from "../../services/interceptor"
+import { adminAPI, productsAPI } from "../../services/interceptor"
 
 const statusColors = {
   pending: { color: "#ff9800", bgcolor: "#fff3e0", label: "Pending" },
@@ -176,16 +176,33 @@ export default function PurchaseOrderManagement() {
       return
     }
 
+    // Ensure unit price equals product cost price where possible
+    const itemsResolved = []
+    for (const i of formData.items) {
+      if (!i.productName || !i.quantity) continue
+      let unitPrice = Number(i.unitPrice) || 0
+      if (!unitPrice) {
+        try {
+          const res = await productsAPI.getAll({ search: i.productName, limit: 1 })
+          const product = res?.data?.data?.[0]
+          if (product && (product.costPrice || product.cost_price)) {
+            unitPrice = Number(product.costPrice || product.cost_price) || 0
+          }
+        } catch {}
+      }
+      itemsResolved.push({
+        productName: i.productName,
+        quantity: Number(i.quantity),
+        rate: unitPrice,
+      })
+    }
+
     const poPayload = {
       supplier: formData.supplier,
       supplierEmail: formData.supplierEmail,
       orderDate: formData.orderDate,
       dueDate: formData.expectedDelivery,
-      items: formData.items.filter((i) => i.productName && i.quantity && i.unitPrice).map((i) => ({
-        productName: i.productName,
-        quantity: Number(i.quantity),
-        rate: Number(i.unitPrice),
-      })),
+      items: itemsResolved,
     }
 
     try {
@@ -202,6 +219,29 @@ export default function PurchaseOrderManagement() {
       setNotification({ open: true, message: "Failed to save purchase order", severity: "error" })
     }
   }
+
+  // Unacknowledged Purchase Orders section
+  const [unackedPOs, setUnackedPOs] = useState([])
+  const [emailFailedPOs, setEmailFailedPOs] = useState([])
+
+  useEffect(() => {
+    const loadUnacknowledged = async () => {
+      try {
+        const resPending = await adminAPI.getPurchaseOrders({ status: "pending" })
+        const dataPending = resPending?.data?.data || resPending?.data || []
+        const resSent = await adminAPI.getPurchaseOrders({ status: "sent" })
+        const dataSent = resSent?.data?.data || resSent?.data || []
+        setUnackedPOs([...(Array.isArray(dataPending) ? dataPending : []), ...(Array.isArray(dataSent) ? dataSent : [])])
+        const resFailed = await adminAPI.getPurchaseOrders({ status: "email_failed" })
+        const dataFailed = resFailed?.data?.data || resFailed?.data || []
+        setEmailFailedPOs(Array.isArray(dataFailed) ? dataFailed : [])
+      } catch (e) {
+        setUnackedPOs([])
+        setEmailFailedPOs([])
+      }
+    }
+    loadUnacknowledged()
+  }, [])
 
   const handleDelete = (order) => {
     setOrderToDelete(order)
@@ -279,6 +319,46 @@ export default function PurchaseOrderManagement() {
           </Select>
         </FormControl>
       </Box>
+
+      {/* Unacknowledged Purchase Orders */}
+      <Paper sx={{ p: 2, mb: 3, borderRadius: 2, border: "1px solid #eee" }}>
+        <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Unacknowledged Purchase Orders</Typography>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Supplier</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Order Date</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {unackedPOs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">No unacknowledged purchase orders</TableCell>
+                </TableRow>
+              ) : (
+                unackedPOs.map((po) => (
+                  <TableRow key={po.id}>
+                    <TableCell>{po.orderNumber || po.poNumber}</TableCell>
+                    <TableCell>{po.supplier?.name || po.supplier}</TableCell>
+                    <TableCell>{po.orderDate}</TableCell>
+                    <TableCell>{po.expectedDelivery || po.dueDate}</TableCell>
+                    <TableCell>
+                      <Chip label={(po.status || "pending").toUpperCase()} size="small" color={po.status === "sent" ? "info" : "warning"} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {emailFailedPOs.length > 0 && (
+          <Alert severity="error" sx={{ mt: 2 }}>Email send failures: {emailFailedPOs.length}</Alert>
+        )}
+      </Paper>
 
       {/* Orders Table */}
       <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>

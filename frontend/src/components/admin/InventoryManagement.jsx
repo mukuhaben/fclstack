@@ -76,9 +76,7 @@ const GRNManagement = () => {
     severity: "success",
   })
 
-  // Unacknowledged POs (from backend)
-  const [unackedPOs, setUnackedPOs] = useState([])
-  const [emailFailedPOs, setEmailFailedPOs] = useState([])
+  // Alerts (moved to dedicated Alerts tab). Keep only GRN data here
   const [underDeliveryAlerts, setUnderDeliveryAlerts] = useState([])
   const [overDeliveryAlerts, setOverDeliveryAlerts] = useState([])
 
@@ -87,7 +85,7 @@ const GRNManagement = () => {
   }, [])
 
   const refreshAll = async () => {
-    await Promise.all([loadGRNs(), loadUnacknowledgedPOs()])
+    await Promise.all([loadGRNs()])
   }
 
   const loadGRNs = async () => {
@@ -122,25 +120,7 @@ const GRNManagement = () => {
     }
   }
 
-  const loadUnacknowledgedPOs = async () => {
-    try {
-      const res = await adminAPI.getPurchaseOrders({ status: "pending" })
-      const data = res?.data?.data || res?.data || []
-      // Consider 'sent' (email sent but no accept) as unacknowledged too
-      const resSent = await adminAPI.getPurchaseOrders({ status: "sent" })
-      const dataSent = resSent?.data?.data || resSent?.data || []
-      const list = [...(Array.isArray(data) ? data : []), ...(Array.isArray(dataSent) ? dataSent : [])]
-      setUnackedPOs(list)
-
-      // Email send failures (if backend uses a status like 'email_failed')
-      const resFailed = await adminAPI.getPurchaseOrders({ status: "email_failed" })
-      const dataFailed = resFailed?.data?.data || resFailed?.data || []
-      setEmailFailedPOs(Array.isArray(dataFailed) ? dataFailed : [])
-    } catch (e) {
-      setUnackedPOs([])
-      setEmailFailedPOs([])
-    }
-  }
+  // Unacknowledged PO loading moved to Purchase Order Management
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue)
@@ -229,78 +209,7 @@ const GRNManagement = () => {
           </Grid>
         </Grid>
 
-        {/* Alerts & Unacknowledged POs */}
-        <Paper sx={{ p: 2, mb: 2, border: "1px solid #eee" }}>
-          <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Alerts</Typography>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "#fff3e0", border: "1px solid #ffcc02" }}>
-                <CardContent sx={{ textAlign: "center", py: 1.5 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: "#f57c00" }}>{unackedPOs.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">POs Not Acknowledged</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "#ffebee", border: "1px solid #ffcdd2" }}>
-                <CardContent sx={{ textAlign: "center", py: 1.5 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: "#d32f2f" }}>{underDeliveryAlerts.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">Under-deliveries</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "#e3f2fd", border: "1px solid #bbdefb" }}>
-                <CardContent sx={{ textAlign: "center", py: 1.5 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: "#1976d2" }}>{overDeliveryAlerts.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">Over-deliveries</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "#fdecea", border: "1px solid #f5c6cb" }}>
-                <CardContent sx={{ textAlign: "center", py: 1.5 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: "#c62828" }}>{emailFailedPOs.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">Email Send Failures</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          <Typography variant="subtitle1" sx={{ mb: 1, color: "#1976d2" }}>Unacknowledged Purchase Orders</Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                  <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Supplier</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Order Date</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {unackedPOs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">No unacknowledged purchase orders</TableCell>
-                  </TableRow>
-                ) : (
-                  unackedPOs.map((po) => (
-                    <TableRow key={po.id}>
-                      <TableCell>{po.orderNumber || po.poNumber}</TableCell>
-                      <TableCell>{po.supplier?.name || po.supplier}</TableCell>
-                      <TableCell>{po.orderDate}</TableCell>
-                      <TableCell>{po.expectedDelivery || po.dueDate}</TableCell>
-                      <TableCell>
-                        <Chip label={(po.status || "pending").toUpperCase()} size="small" color={po.status === "sent" ? "info" : "warning"} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+        {/* Alerts moved to dedicated Alerts tab */}
       </Paper>
 
       {/* Main Content */}

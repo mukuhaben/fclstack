@@ -302,7 +302,7 @@ export default function SalesAgentAdminPanel() {
                 <TableRow key={agent.id} hover>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Avatar src={agent.photo_url || agent.photo} sx={{ mr: 2, width: 40, height: 40 }} />
+                      <Avatar src={(agent.photo_url && agent.photo_url.startsWith("/uploads")) ? `${(import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace(/\/api$/, "")}${agent.photo_url}` : (agent.photo_url || agent.photo)} sx={{ mr: 2, width: 40, height: 40 }} />
                       <Box>
                         <Typography variant="body2" fontWeight={600}>
                           {agent.name}

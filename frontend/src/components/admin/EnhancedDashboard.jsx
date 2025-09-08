@@ -269,19 +269,17 @@ const EnhancedDashboard = () => {
   const MetricsCards = () => {
     const metrics = [
       { title: "Total Sales", value: `KSh ${dashboardData.metrics.totalSales?.toLocaleString() || "0"}`, icon: <AttachMoney sx={{ fontSize: 40, color: "#1976d2" }} />, trend: "+12%", trendUp: true, bgcolor: "#e3f2fd" },
-      { title: "Total Orders", value: dashboardData.metrics.totalOrders?.toLocaleString() || "0", icon: <ShoppingCart sx={{ fontSize: 40, color: "#4caf50" }} />, trend: "+8%", trendUp: true, bgcolor: "#e8f5e8" },
       { title: "Total Customers", value: dashboardData.metrics.totalCustomers?.toLocaleString() || "0", icon: <People sx={{ fontSize: 40, color: "#ff9800" }} />, trend: "+15%", trendUp: true, bgcolor: "#fff3e0" },
       { title: "Active Listings", value: dashboardData.metrics.activeListings?.toLocaleString() || "0", icon: <Inventory sx={{ fontSize: 40, color: "#9c27b0" }} />, trend: "+5%", trendUp: true, bgcolor: "#f3e5f5" },
       { title: "Surplus Utilization %", value: `${dashboardData.metrics.surplusUtilizationPct || 0}%`, icon: <CheckCircle sx={{ fontSize: 40, color: "#607d8b" }} />, trend: "+2%", trendUp: true, bgcolor: "#eceff1" },
-      { title: "Pending Orders", value: dashboardData.metrics.pendingOrders?.toLocaleString() || "0", icon: <Warning sx={{ fontSize: 40, color: "#f44336" }} />, trend: "+3%", trendUp: true, bgcolor: "#ffebee" },
       { title: "PO Acknowledgment Rate", value: `${dashboardData.metrics.poAcknowledgmentRatePct || 0}%`, icon: <CheckCircle sx={{ fontSize: 40, color: "#2e7d32" }} />, trend: "+1%", trendUp: true, bgcolor: "#e8f5e8" },
       { title: "Supplier Late Deliveries", value: dashboardData.metrics.supplierLateDeliveries?.toLocaleString() || "0", icon: <Warning sx={{ fontSize: 40, color: "#ff6f00" }} />, trend: "-1%", trendUp: false, bgcolor: "#fff3e0" },
     ]
 
     return (
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={2} sx={{ mb: 4 }}>
         {metrics.map((metric, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+          <Grid item xs={6} sm={4} md={2} lg={2} key={index}>
             <Card sx={{ height: "100%", borderRadius: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 25px rgba(0,0,0,0.15)" } }}>
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
@@ -438,26 +436,25 @@ const EnhancedDashboard = () => {
 
       <MetricsCards />
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} lg={12}>
+      {/* Four-quadrant cartesian plane containing primary Supplier Surplus vs Sold and other charts */}
+      <Grid container spacing={3} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={6}>
           <SupplierSurplusVsSold />
         </Grid>
-      </Grid>
-
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12} md={6}>
+          <SalesByCategoryChart />
+        </Grid>
+        <Grid item xs={12} md={6}>
           <CategoryChart />
         </Grid>
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12} md={6}>
           <CustomerAcquisitionChart />
         </Grid>
       </Grid>
 
+      {/* Move Top Performing Products below the quadrants as a table */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} lg={6}>
-          <SalesByCategoryChart />
-        </Grid>
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12}>
           <TopProducts />
         </Grid>
       </Grid>

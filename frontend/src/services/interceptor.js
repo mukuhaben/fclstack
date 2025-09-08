@@ -311,8 +311,7 @@ export const adminAPI = {
   updateSupplier: (id, supplierData) => api.put(`/admin/suppliers/${id}`, supplierData),
   deleteSupplier: (id) => api.delete(`/admin/suppliers/${id}`),
   updateSupplierStatus: (id, status) => api.patch(`/admin/suppliers/${id}/status`, { status }),
-  validateSupplierEmail: (email, excludeId) =>
-    api.get("/admin/suppliers/validate-email", { params: { email, excludeId } }),
+  validateSupplierEmail: (email, excludeId) => api.get("/admin/suppliers/validate-email", { params: { email, excludeId } }),
   // Purchase Orders
   getPurchaseOrders: (params) => api.get("/admin/purchase-orders", { params }),
   createPurchaseOrder: (poData, consumeVirtualStock = true) =>
