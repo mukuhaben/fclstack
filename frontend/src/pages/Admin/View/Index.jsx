@@ -28,6 +28,7 @@ import SalesAgentAdminPanel from "../../../components/admin/SalesAgentAdminPanel
 import CustomerManagement from "../../../components/admin/CustomerManagement"
 import OrdersManagement from "../../../components/admin/OrdersManagement"
 import PurchaseOrderManagement from "../../../components/admin/PurchaseOrderManagement"
+import AlertsManagement from "../../../components/admin/AlertsManagement"
 
 // Tab panel component for clean content rendering
 function TabPanel(props) {
@@ -644,6 +645,11 @@ const AdminPage = () => {
         {/* Customer Management Tab */}
         <TabPanel value={tabValue} index={7}>
           <CustomerManagement />
+        </TabPanel>
+
+        {/* Alerts Tab */}
+        <TabPanel value={tabValue} index={8}>
+          <AlertsManagement />
         </TabPanel>
       </Box>
     </Box>

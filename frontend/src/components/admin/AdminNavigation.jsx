@@ -40,6 +40,7 @@ import {
   Store as StoreIcon,
   ListAlt as ListAltIcon,
   Receipt as GRNIcon,
+  Warning as AlertsIcon,
 } from "@mui/icons-material"
 import { useNavigate } from "react-router-dom"
 
@@ -130,6 +131,7 @@ const AdminNavigation = ({
     grn: false,
     suppliers: false,
     agents: false,
+    alerts: false,
   })
 
   // Refs for dropdown positioning
@@ -140,6 +142,7 @@ const AdminNavigation = ({
     grn: useRef(null),
     suppliers: useRef(null),
     agents: useRef(null),
+    alerts: useRef(null),
   }
 
   const isMenuOpen = Boolean(anchorEl)
@@ -403,6 +406,21 @@ const AdminNavigation = ({
                 data: { type: "item" },
               },
             ])}
+          </Box>
+
+          {/* Alerts */}
+          <Box ref={dropdownRefs.alerts} sx={{ position: "relative" }}>
+            <AdminNavButton
+              startIcon={<AlertsIcon sx={{ fontSize: 18 }} />}
+              active={isTabActive(8) || activeComponent === "AlertsManagement"}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleDirectComponentNavigation("AlertsManagement", 8, "alerts")
+              }}
+            >
+              Alerts
+            </AdminNavButton>
           </Box>
 
           <Box ref={dropdownRefs.categories} sx={{ position: "relative" }}>

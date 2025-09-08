@@ -105,13 +105,17 @@ const CategoryPage = () => {
         if (productsResponse.data?.success) {
           const productsData = productsResponse.data.data || []
 
+          const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace(/\/api$/, "")
           const normalizedProducts = productsData.map((product) => ({
             ...product,
             id: product.id,
             name: product.name,
             description: product.description,
-            image:
-              product.primaryImage || product.imageUrl || `/placeholder.svg?height=200&width=200&query=product image`,
+            image: (product.primaryImage || product.imageUrl)
+              ? ((product.primaryImage || product.imageUrl).startsWith("/uploads")
+                  ? `${apiBase}${product.primaryImage || product.imageUrl}`
+                  : (product.primaryImage || product.imageUrl))
+              : `/placeholder.svg?height=200&width=200&query=product image`,
             price: product.price || 0,
             pricing_tiers: product.pricingTiers || [],
             category: product.category?.name,

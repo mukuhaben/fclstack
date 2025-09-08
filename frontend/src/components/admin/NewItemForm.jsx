@@ -16,8 +16,6 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Switch,
-  FormControlLabel,
   Alert,
   Snackbar,
   Stack,
@@ -46,13 +44,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     costPrice: "",
     vat: "16",
     cashbackRate: "0",
-    stockUnits: "0",
-    reorderLevel: "",
-    orderLevel: "",
-    alertQuantity: "",
-    reorderActive: true,
     uom: "PC",
-    packSize: "",
     productBarcode: "",
     etimsRefCode: "",
     expiryDate: "",
@@ -92,11 +84,6 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     costPrice: "",
     vat: "16",
     cashbackRate: "0",
-    stockUnits: "",
-    reorderLevel: "",
-    orderLevel: "",
-    reorderActive: true,
-    alertQuantity: "",
     qty1Min: "1",
     qty1Max: "3",
     qty2Min: "4",
@@ -106,12 +93,6 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     sellingPrice1: "",
     sellingPrice2: "",
     sellingPrice3: "",
-    uom: "PC",
-    packSize: "",
-    productBarcode: "",
-    etimsRefCode: "",
-    expiryDate: "",
-    class: "Standard",
     image: null,
     imagePreview: null,
     imageUrl: "",
@@ -613,13 +594,6 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
         cost_price: Math.max(0.01, Number.parseFloat(formData.costPrice) || 0.01), // Ensure minimum positive value
         vat_rate: Number.parseFloat(formData.vat) || 16,
         cashback_rate: Number.parseFloat(formData.cashbackRate) || 0,
-        stock_units: Number.parseInt(formData.stockUnits) || 0,
-        reorder_level: formData.reorderLevel ? Number.parseInt(formData.reorderLevel) : null,
-        order_level: formData.orderLevel ? Number.parseInt(formData.orderLevel) : null,
-        alert_quantity: formData.alertQuantity ? Number.parseInt(formData.alertQuantity) : null,
-        reorder_active: formData.reorderActive,
-        uom: formData.uom || "PC",
-        pack_size: formData.packSize || null,
         product_barcode: formData.productBarcode || null,
         etims_ref_code: formData.etimsRefCode || null,
         expiry_date: formData.expiryDate || null,
@@ -697,13 +671,6 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
           costPrice: "",
           vat: "16",
           cashbackRate: "0",
-          stockUnits: "0",
-          reorderLevel: "",
-          orderLevel: "",
-          alertQuantity: "",
-          reorderActive: true,
-          uom: "PC",
-          packSize: "",
           productBarcode: "",
           etimsRefCode: "",
           expiryDate: "",
@@ -1254,76 +1221,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
               </AccordionSummary>
               <AccordionDetails sx={{ p: 3 }}>
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      fullWidth
-                      label="Stock Units"
-                      name="stockUnits"
-                      type="number"
-                      value={formData.stockUnits}
-                      onChange={handleChange}
-                      variant="outlined"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      fullWidth
-                      label="Alert Quantity"
-                      name="alertQuantity"
-                      type="number"
-                      value={formData.alertQuantity}
-                      onChange={handleChange}
-                      variant="outlined"
-                      helperText="Low stock alert level"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      fullWidth
-                      label="Reorder Level"
-                      name="reorderLevel"
-                      type="number"
-                      value={formData.reorderLevel}
-                      onChange={handleChange}
-                      variant="outlined"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      fullWidth
-                      label="Order Level"
-                      name="orderLevel"
-                      type="number"
-                      value={formData.orderLevel}
-                      onChange={handleChange}
-                      variant="outlined"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <FormControl fullWidth>
-                      <InputLabel>Unit of Measure</InputLabel>
-                      <Select name="uom" value={formData.uom} onChange={handleChange} label="Unit of Measure">
-                        <MenuItem value="PC">Pieces (PC)</MenuItem>
-                        <MenuItem value="KG">Kilograms (KG)</MenuItem>
-                        <MenuItem value="L">Liters (L)</MenuItem>
-                        <MenuItem value="M">Meters (M)</MenuItem>
-                        <MenuItem value="BOX">Box</MenuItem>
-                        <MenuItem value="PACK">Pack</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Pack Size"
-                      name="packSize"
-                      value={formData.packSize}
-                      onChange={handleChange}
-                      placeholder="e.g., 12 units per pack"
-                      variant="outlined"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Product Barcode"
@@ -1353,12 +1251,6 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
                       onChange={handleChange}
                       InputLabelProps={{ shrink: true }}
                       variant="outlined"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={<Switch checked={formData.reorderActive} onChange={handleChange} name="reorderActive" />}
-                      label="Enable Automatic Reordering"
                     />
                   </Grid>
                 </Grid>
