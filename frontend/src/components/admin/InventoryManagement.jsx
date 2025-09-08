@@ -29,6 +29,7 @@ import {
   Refresh as RefreshIcon,
 } from "@mui/icons-material"
 import GoodsReceivedNoteForm from "./GoodsReceivedNoteForm"
+import { adminAPI } from "../../services/interceptor"
 
 /**
  * TabPanel Component for organizing GRN management sections
@@ -75,54 +76,43 @@ const GRNManagement = () => {
     severity: "success",
   })
 
-  // Initialize sample GRN data
-  useEffect(() => {
-    const sampleGRNs = [
-      {
-        id: "GRN001",
-        grnNumber: "GRN-2024-001",
-        reference: "PO-2024-001",
-        receiveDate: "2024-06-15",
-        purchaseOrder: {
-          id: "PO001",
-          poNumber: "PO-2024-001",
-          supplier: {
-            name: "Afri Supplies Ltd",
-            contact: "John Kamau",
-            email: "info@afrisupplies.co.ke",
-            phone: "+254 722 123 456",
-          },
-        },
-        warehouse: { id: 1, name: "Main Warehouse" },
-        receivedBy: "John Doe",
-        items: [
-          {
-            id: 1,
-            productCode: "L0202004",
-            productName: "Afri Multipurpose Labels K11 19*13mm White",
-            orderedQuantity: 10,
-            receivedQuantity: 10,
-            pendingQuantity: 0,
-            rate: 50.0,
-            amount: 500.0,
-            status: "complete",
-          },
-        ],
-        totals: {
-          totalItems: 10,
-          totalReceived: 10,
-          totalPending: 0,
-          totalValue: 500.0,
-        },
-        status: "complete",
-        notes: "All items received in good condition",
-        createdAt: "2024-06-15T10:30:00Z",
-      },
-    ]
+  // Unacknowledged POs (from backend)
+  const [unackedPOs, setUnackedPOs] = useState([])
 
-    setGrns(sampleGRNs)
-    setFilteredGrns(sampleGRNs)
+  useEffect(() => {
+    refreshAll()
   }, [])
+
+  const refreshAll = async () => {
+    await Promise.all([loadGRNs(), loadUnacknowledgedPOs()])
+  }
+
+  const loadGRNs = async () => {
+    try {
+      const res = await adminAPI.getGRNs()
+      const data = res?.data?.data || res?.data || []
+      setGrns(Array.isArray(data) ? data : [])
+      setFilteredGrns(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setGrns([])
+      setFilteredGrns([])
+      setNotification({ open: true, message: "Failed to load GRNs", severity: "error" })
+    }
+  }
+
+  const loadUnacknowledgedPOs = async () => {
+    try {
+      const res = await adminAPI.getPurchaseOrders({ status: "pending" })
+      const data = res?.data?.data || res?.data || []
+      // Consider 'sent' (email sent but no accept) as unacknowledged too
+      const resSent = await adminAPI.getPurchaseOrders({ status: "sent" })
+      const dataSent = resSent?.data?.data || resSent?.data || []
+      const list = [...(Array.isArray(data) ? data : []), ...(Array.isArray(dataSent) ? dataSent : [])]
+      setUnackedPOs(list)
+    } catch (e) {
+      setUnackedPOs([])
+    }
+  }
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue)
@@ -133,7 +123,7 @@ const GRNManagement = () => {
       style: "currency",
       currency: "KES",
       minimumFractionDigits: 2,
-    }).format(amount)
+    }).format(amount || 0)
   }
 
   const getStatusColor = (status) => {
@@ -158,15 +148,10 @@ const GRNManagement = () => {
             Goods Received Note Management
           </Typography>
           <Box sx={{ display: "flex", gap: 1 }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setGrnFormOpen(true)}
-              sx={{ bgcolor: "#1976d2" }}
-            >
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setGrnFormOpen(true)} sx={{ bgcolor: "#1976d2" }}>
               Create GRN
             </Button>
-            <Button variant="outlined" startIcon={<RefreshIcon />}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refreshAll}>
               Refresh
             </Button>
           </Box>
@@ -180,9 +165,7 @@ const GRNManagement = () => {
                 <Typography variant="h4" sx={{ fontWeight: 600, color: "#1976d2" }}>
                   {grns.length}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total GRNs
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Total GRNs</Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -192,9 +175,7 @@ const GRNManagement = () => {
                 <Typography variant="h4" sx={{ fontWeight: 600, color: "#388e3c" }}>
                   {grns.filter((grn) => grn.status === "complete").length}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Completed
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Completed</Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -204,9 +185,7 @@ const GRNManagement = () => {
                 <Typography variant="h4" sx={{ fontWeight: 600, color: "#f57c00" }}>
                   {grns.filter((grn) => grn.status === "partial").length}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Partial
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Partial</Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -216,13 +195,48 @@ const GRNManagement = () => {
                 <Typography variant="h4" sx={{ fontWeight: 600, color: "#0288d1" }}>
                   {grns.filter((grn) => grn.status === "pending").length}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Pending
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Pending</Typography>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
+
+        {/* Unacknowledged POs */}
+        <Paper sx={{ p: 2, mb: 2, border: "1px solid #eee" }}>
+          <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Unacknowledged Purchase Orders</Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Supplier</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Order Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {unackedPOs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">No unacknowledged purchase orders</TableCell>
+                  </TableRow>
+                ) : (
+                  unackedPOs.map((po) => (
+                    <TableRow key={po.id}>
+                      <TableCell>{po.orderNumber || po.poNumber}</TableCell>
+                      <TableCell>{po.supplier?.name || po.supplier}</TableCell>
+                      <TableCell>{po.orderDate}</TableCell>
+                      <TableCell>{po.expectedDelivery || po.dueDate}</TableCell>
+                      <TableCell>
+                        <Chip label={(po.status || "pending").toUpperCase()} size="small" color={po.status === "sent" ? "info" : "warning"} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       </Paper>
 
       {/* Main Content */}
@@ -244,34 +258,20 @@ const GRNManagement = () => {
               {grns.map((grn) => (
                 <TableRow key={grn.id} hover>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {grn.grnNumber}
-                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{grn.grnNumber}</Typography>
                   </TableCell>
                   <TableCell>{grn.reference}</TableCell>
-                  <TableCell>{grn.purchaseOrder.supplier.name}</TableCell>
+                  <TableCell>{grn.purchaseOrder?.supplier?.name || grn.supplier?.name || ""}</TableCell>
                   <TableCell>{new Date(grn.receiveDate).toLocaleDateString()}</TableCell>
-                  <TableCell>{formatCurrency(grn.totals.totalValue)}</TableCell>
+                  <TableCell>{formatCurrency(grn.totals?.totalValue || grn.totalValue)}</TableCell>
                   <TableCell>
-                    <Chip label={grn.status.toUpperCase()} color={getStatusColor(grn.status)} size="small" />
+                    <Chip label={(grn.status || "").toUpperCase()} color={getStatusColor(grn.status)} size="small" />
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", gap: 0.5 }}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small">
-                          <ViewIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit GRN">
-                        <IconButton size="small">
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Print GRN">
-                        <IconButton size="small">
-                          <PrintIcon />
-                        </IconButton>
-                      </Tooltip>
+                      <Tooltip title="View Details"><IconButton size="small"><ViewIcon /></IconButton></Tooltip>
+                      <Tooltip title="Edit GRN"><IconButton size="small"><EditIcon /></IconButton></Tooltip>
+                      <Tooltip title="Print GRN"><IconButton size="small"><PrintIcon /></IconButton></Tooltip>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -286,8 +286,8 @@ const GRNManagement = () => {
         open={grnFormOpen}
         onClose={() => setGrnFormOpen(false)}
         onSave={(grnData) => {
-          console.log("Saving GRN:", grnData)
           setGrnFormOpen(false)
+          refreshAll()
         }}
       />
 
@@ -298,11 +298,7 @@ const GRNManagement = () => {
         onClose={() => setNotification({ ...notification, open: false })}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: "100%" }}
-        >
+        <Alert onClose={() => setNotification({ ...notification, open: false })} severity={notification.severity} sx={{ width: "100%" }}>
           {notification.message}
         </Alert>
       </Snackbar>
