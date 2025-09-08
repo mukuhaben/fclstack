@@ -313,6 +313,17 @@ export const adminAPI = {
   updateSupplierStatus: (id, status) => api.patch(`/admin/suppliers/${id}/status`, { status }),
   validateSupplierEmail: (email, excludeId) =>
     api.get("/admin/suppliers/validate-email", { params: { email, excludeId } }),
+  // Purchase Orders
+  getPurchaseOrders: (params) => api.get("/admin/purchase-orders", { params }),
+  createPurchaseOrder: (poData, consumeVirtualStock = true) =>
+    api.post("/admin/purchase-orders", { ...poData, consume_virtual_stock: consumeVirtualStock }),
+  updatePurchaseOrder: (id, poData) => api.put(`/admin/purchase-orders/${id}`, poData),
+  updatePurchaseOrderStatus: (id, status) => api.patch(`/admin/purchase-orders/${id}/status`, { status }),
+  deletePurchaseOrder: (id) => api.delete(`/admin/purchase-orders/${id}`),
+  // GRNs
+  getGRNs: (params) => api.get("/admin/grns", { params }),
+  createGRN: (grnData) => api.post("/admin/grns", grnData),
+  updateGRN: (id, grnData) => api.put(`/admin/grns/${id}`, grnData),
   getCustomers: (params) => api.get("/admin/customers", { params }),
   updateCustomer: (id, customerData) => api.put(`/admin/customers/${id}`, customerData),
   deleteCustomer: (id) => api.delete(`/admin/customers/${id}`),

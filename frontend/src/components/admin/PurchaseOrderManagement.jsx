@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Box,
   Typography,
@@ -33,60 +33,8 @@ import {
   Divider,
   Card,
 } from "@mui/material"
-import {
-  Add,
-  Edit,
-  Delete,
-  MoreVert,
-  Visibility,
-  LocalShipping,
-  Business,
-  CalendarToday,
-  AttachMoney,
-} from "@mui/icons-material"
-
-// Mock data for purchase orders
-const initialPurchaseOrders = [
-  {
-    id: 1,
-    orderNumber: "PO-2024-001",
-    supplier: "ABC Suppliers Ltd",
-    supplierEmail: "orders@abcsuppliers.co.ke",
-    orderDate: "2024-01-15",
-    expectedDelivery: "2024-01-25",
-    status: "pending",
-    totalAmount: 125000,
-    items: [
-      { productName: "Product A", quantity: 50, unitPrice: 1500, total: 75000 },
-      { productName: "Product B", quantity: 25, unitPrice: 2000, total: 50000 },
-    ],
-  },
-  {
-    id: 2,
-    orderNumber: "PO-2024-002",
-    supplier: "XYZ Trading Co",
-    supplierEmail: "procurement@xyztrading.co.ke",
-    orderDate: "2024-01-20",
-    expectedDelivery: "2024-01-30",
-    status: "approved",
-    totalAmount: 85000,
-    items: [
-      { productName: "Product C", quantity: 30, unitPrice: 1800, total: 54000 },
-      { productName: "Product D", quantity: 20, unitPrice: 1550, total: 31000 },
-    ],
-  },
-  {
-    id: 3,
-    orderNumber: "PO-2024-003",
-    supplier: "Global Imports",
-    supplierEmail: "info@globalimports.co.ke",
-    orderDate: "2024-01-25",
-    expectedDelivery: "2024-02-05",
-    status: "delivered",
-    totalAmount: 95000,
-    items: [{ productName: "Product E", quantity: 40, unitPrice: 2375, total: 95000 }],
-  },
-]
+import { Add, Edit, Delete, MoreVert, Visibility, LocalShipping, Business, CalendarToday, AttachMoney } from "@mui/icons-material"
+import { adminAPI } from "../../services/interceptor"
 
 const statusColors = {
   pending: { color: "#ff9800", bgcolor: "#fff3e0", label: "Pending" },
@@ -100,7 +48,7 @@ export default function PurchaseOrderManagement() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
   // State management
-  const [purchaseOrders, setPurchaseOrders] = useState(initialPurchaseOrders)
+  const [purchaseOrders, setPurchaseOrders] = useState([])
   const [openDialog, setOpenDialog] = useState(false)
   const [viewDialog, setViewDialog] = useState(false)
   const [editOrder, setEditOrder] = useState(null)
@@ -124,26 +72,43 @@ export default function PurchaseOrderManagement() {
     items: [{ productName: "", quantity: "", unitPrice: "", total: 0 }],
   })
 
-  // Generate order number
+  useEffect(() => {
+    loadPOs()
+  }, [])
+
+  const loadPOs = async () => {
+    try {
+      const res = await adminAPI.getPurchaseOrders()
+      const data = res?.data?.data || res?.data || []
+      setPurchaseOrders(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setPurchaseOrders([])
+    }
+  }
+
   const generateOrderNumber = () => {
     const year = new Date().getFullYear()
     const orderCount = purchaseOrders.length + 1
     return `PO-${year}-${orderCount.toString().padStart(3, "0")}`
   }
 
-  // Handle form operations
   const handleOpenDialog = (order = null) => {
     if (order) {
       setEditOrder(order)
       setFormData({
-        orderNumber: order.orderNumber,
-        supplier: order.supplier,
-        supplierEmail: order.supplierEmail,
-        orderDate: order.orderDate,
-        expectedDelivery: order.expectedDelivery,
-        status: order.status,
-        totalAmount: order.totalAmount.toString(),
-        items: order.items,
+        orderNumber: order.orderNumber || order.poNumber || generateOrderNumber(),
+        supplier: order.supplier?.name || order.supplier || "",
+        supplierEmail: order.supplier?.email || order.supplierEmail || "",
+        orderDate: order.orderDate || new Date().toISOString().split("T")[0],
+        expectedDelivery: order.expectedDelivery || order.dueDate || "",
+        status: order.status || "pending",
+        totalAmount: (order.totalAmount || order.totals?.grandTotal || 0).toString(),
+        items: (order.items || []).map((it) => ({
+          productName: it.productName || it.name || "",
+          quantity: it.quantity || 0,
+          unitPrice: it.unitPrice || it.rate || 0,
+          total: it.total || it.amount || 0,
+        })),
       })
       setIsAdd(false)
     } else {
@@ -178,14 +143,11 @@ export default function PurchaseOrderManagement() {
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...formData.items]
     updatedItems[index][field] = value
-
-    // Calculate total for the item
     if (field === "quantity" || field === "unitPrice") {
       const quantity = Number.parseFloat(updatedItems[index].quantity) || 0
       const unitPrice = Number.parseFloat(updatedItems[index].unitPrice) || 0
       updatedItems[index].total = quantity * unitPrice
     }
-
     setFormData((prev) => ({
       ...prev,
       items: updatedItems,
@@ -194,10 +156,7 @@ export default function PurchaseOrderManagement() {
   }
 
   const addItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, { productName: "", quantity: "", unitPrice: "", total: 0 }],
-    }))
+    setFormData((prev) => ({ ...prev, items: [...prev.items, { productName: "", quantity: "", unitPrice: "", total: 0 }] }))
   }
 
   const removeItem = (index) => {
@@ -211,45 +170,37 @@ export default function PurchaseOrderManagement() {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.supplier || !formData.supplierEmail || !formData.expectedDelivery) {
-      setNotification({
-        open: true,
-        message: "Please fill in all required fields",
-        severity: "error",
-      })
+      setNotification({ open: true, message: "Please fill in all required fields", severity: "error" })
       return
     }
 
-    const newOrder = {
-      id: editOrder ? editOrder.id : Date.now(),
-      orderNumber: formData.orderNumber,
+    const poPayload = {
       supplier: formData.supplier,
       supplierEmail: formData.supplierEmail,
       orderDate: formData.orderDate,
-      expectedDelivery: formData.expectedDelivery,
-      status: formData.status,
-      totalAmount: Number.parseFloat(formData.totalAmount) || 0,
-      items: formData.items.filter((item) => item.productName && item.quantity && item.unitPrice),
+      dueDate: formData.expectedDelivery,
+      items: formData.items.filter((i) => i.productName && i.quantity && i.unitPrice).map((i) => ({
+        productName: i.productName,
+        quantity: Number(i.quantity),
+        rate: Number(i.unitPrice),
+      })),
     }
 
-    if (editOrder) {
-      setPurchaseOrders(purchaseOrders.map((order) => (order.id === editOrder.id ? newOrder : order)))
-      setNotification({
-        open: true,
-        message: "Purchase order updated successfully!",
-        severity: "success",
-      })
-    } else {
-      setPurchaseOrders([...purchaseOrders, newOrder])
-      setNotification({
-        open: true,
-        message: "Purchase order created successfully!",
-        severity: "success",
-      })
+    try {
+      if (editOrder) {
+        await adminAPI.updatePurchaseOrder(editOrder.id, poPayload)
+        setNotification({ open: true, message: "Purchase order updated successfully!", severity: "success" })
+      } else {
+        await adminAPI.createPurchaseOrder(poPayload, true) // consume virtual stock first
+        setNotification({ open: true, message: "Purchase order created successfully!", severity: "success" })
+      }
+      handleCloseDialog()
+      loadPOs()
+    } catch (e) {
+      setNotification({ open: true, message: "Failed to save purchase order", severity: "error" })
     }
-
-    handleCloseDialog()
   }
 
   const handleDelete = (order) => {
@@ -257,17 +208,19 @@ export default function PurchaseOrderManagement() {
     setDeleteConfirmOpen(true)
   }
 
-  const confirmDelete = () => {
-    if (orderToDelete) {
-      setPurchaseOrders(purchaseOrders.filter((order) => order.id !== orderToDelete.id))
-      setNotification({
-        open: true,
-        message: "Purchase order deleted successfully!",
-        severity: "success",
-      })
+  const confirmDelete = async () => {
+    try {
+      if (orderToDelete) {
+        await adminAPI.deletePurchaseOrder(orderToDelete.id)
+        setNotification({ open: true, message: "Purchase order deleted successfully!", severity: "success" })
+        loadPOs()
+      }
+    } catch (e) {
+      setNotification({ open: true, message: "Failed to delete purchase order", severity: "error" })
+    } finally {
+      setDeleteConfirmOpen(false)
+      setOrderToDelete(null)
     }
-    setDeleteConfirmOpen(false)
-    setOrderToDelete(null)
   }
 
   const handleView = (order) => {
@@ -275,12 +228,11 @@ export default function PurchaseOrderManagement() {
     setViewDialog(true)
   }
 
-  // Filter orders
   const filteredOrders = purchaseOrders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.supplier.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = filterStatus === "all" || order.status === filterStatus
+    const poNumber = (order.orderNumber || order.poNumber || "").toLowerCase()
+    const supplierName = (order.supplier?.name || order.supplier || "").toLowerCase()
+    const matchesSearch = poNumber.includes(searchTerm.toLowerCase()) || supplierName.includes(searchTerm.toLowerCase())
+    const matchesStatus = filterStatus === "all" || (order.status || "").toLowerCase() === filterStatus
     return matchesSearch && matchesStatus
   })
 
@@ -295,61 +247,33 @@ export default function PurchaseOrderManagement() {
   }
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(amount)
+    return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount || 0)
   }
 
   return (
     <Box sx={{ p: 3, maxWidth: "100%", mx: "auto" }}>
       {/* Header */}
-      <Box
-        sx={{ mb: 4, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}
-      >
+      <Box sx={{ mb: 4, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
             Purchase Order Management
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Create and manage purchase orders for suppliers
-          </Typography>
+          <Typography variant="body1" color="text.secondary">Create and manage purchase orders for suppliers</Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
-          sx={{
-            bgcolor: "#1976d2",
-            "&:hover": { bgcolor: "#1565c0" },
-            textTransform: "none",
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            borderRadius: 2,
-          }}
-        >
+        <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()} sx={{ bgcolor: "#1976d2", "&:hover": { bgcolor: "#1565c0" }, textTransform: "none", fontWeight: 600, px: 3, py: 1.5, borderRadius: 2 }}>
           Create Purchase Order
         </Button>
       </Box>
 
       {/* Filters */}
       <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <TextField
-          placeholder="Search orders..."
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ minWidth: 300 }}
-        />
+        <TextField placeholder="Search orders..." variant="outlined" size="small" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} sx={{ minWidth: 300 }} />
         <FormControl size="small" sx={{ minWidth: 120 }}>
           <InputLabel>Status</InputLabel>
           <Select value={filterStatus} label="Status" onChange={(e) => setFilterStatus(e.target.value)}>
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="approved">Approved</MenuItem>
+            <MenuItem value="sent">Sent</MenuItem>
             <MenuItem value="delivered">Delivered</MenuItem>
             <MenuItem value="cancelled">Cancelled</MenuItem>
           </Select>
@@ -367,36 +291,27 @@ export default function PurchaseOrderManagement() {
                 <TableCell sx={{ fontWeight: 700, color: "#333" }}>Dates</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: "#333" }}>Amount</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: "#333" }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: "#333" }} align="center">
-                  Actions
-                </TableCell>
+                <TableCell sx={{ fontWeight: 700, color: "#333" }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredOrders.map((order) => {
-                const statusConfig = statusColors[order.status]
+                const statusKey = (order.status || "pending").toLowerCase()
+                const statusConfig = statusColors[statusKey] || statusColors.pending
                 return (
                   <TableRow key={order.id} hover>
                     <TableCell>
                       <Box>
-                        <Typography variant="body2" fontWeight={600} color="#1976d2">
-                          {order.orderNumber}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {order.items.length} item(s)
-                        </Typography>
+                        <Typography variant="body2" fontWeight={600} color="#1976d2">{order.orderNumber || order.poNumber}</Typography>
+                        <Typography variant="caption" color="text.secondary">{(order.items || []).length} item(s)</Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center" }}>
                         <Business sx={{ mr: 1, color: "#666", fontSize: 18 }} />
                         <Box>
-                          <Typography variant="body2" fontWeight={600}>
-                            {order.supplier}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {order.supplierEmail}
-                          </Typography>
+                          <Typography variant="body2" fontWeight={600}>{order.supplier?.name || order.supplier}</Typography>
+                          <Typography variant="caption" color="text.secondary">{order.supplier?.email || order.supplierEmail}</Typography>
                         </Box>
                       </Box>
                     </TableCell>
@@ -408,34 +323,21 @@ export default function PurchaseOrderManagement() {
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center" }}>
                           <LocalShipping sx={{ mr: 1, fontSize: 14, color: "#666" }} />
-                          <Typography variant="caption">Expected: {order.expectedDelivery}</Typography>
+                          <Typography variant="caption">Expected: {order.expectedDelivery || order.dueDate}</Typography>
                         </Box>
                       </Stack>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center" }}>
                         <AttachMoney sx={{ mr: 1, fontSize: 18, color: "#4caf50" }} />
-                        <Typography variant="body2" fontWeight={600}>
-                          {formatCurrency(order.totalAmount)}
-                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>{formatCurrency(order.totalAmount || order.totals?.grandTotal)}</Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={statusConfig.label}
-                        sx={{
-                          bgcolor: statusConfig.bgcolor,
-                          color: statusConfig.color,
-                          fontWeight: 600,
-                          fontSize: "0.75rem",
-                        }}
-                        size="small"
-                      />
+                      <Chip label={statusConfig.label} sx={{ bgcolor: statusConfig.bgcolor, color: statusConfig.color, fontWeight: 600, fontSize: "0.75rem" }} size="small" />
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton size="small" onClick={(e) => handleActionMenuOpen(e, order)}>
-                        <MoreVert />
-                      </IconButton>
+                      <IconButton size="small" onClick={(e) => handleActionMenuOpen(e, order)}><MoreVert /></IconButton>
                     </TableCell>
                   </TableRow>
                 )
@@ -447,30 +349,9 @@ export default function PurchaseOrderManagement() {
 
       {/* Action Menu */}
       <Menu anchorEl={actionMenuAnchor} open={Boolean(actionMenuAnchor)} onClose={handleActionMenuClose}>
-        <MenuItem
-          onClick={() => {
-            handleView(selectedOrder)
-            handleActionMenuClose()
-          }}
-        >
-          <Visibility sx={{ mr: 1 }} /> View Details
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            handleOpenDialog(selectedOrder)
-            handleActionMenuClose()
-          }}
-        >
-          <Edit sx={{ mr: 1 }} /> Edit
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            handleDelete(selectedOrder)
-            handleActionMenuClose()
-          }}
-        >
-          <Delete sx={{ mr: 1 }} /> Delete
-        </MenuItem>
+        <MenuItem onClick={() => { handleView(selectedOrder); handleActionMenuClose() }}><Visibility sx={{ mr: 1 }} /> View Details</MenuItem>
+        <MenuItem onClick={() => { handleOpenDialog(selectedOrder); handleActionMenuClose() }}><Edit sx={{ mr: 1 }} /> Edit</MenuItem>
+        <MenuItem onClick={() => { handleDelete(selectedOrder); handleActionMenuClose() }}><Delete sx={{ mr: 1 }} /> Delete</MenuItem>
       </Menu>
 
       {/* Add/Edit Dialog */}
