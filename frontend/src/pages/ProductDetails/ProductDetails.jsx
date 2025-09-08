@@ -59,12 +59,29 @@ const ProductDetails = () => {
 
   const getProductImages = () => {
     const images = []
-    if (product?.images?.length > 0) {
-      images.push(...product.images.map((img) => img.url))
+    
+    // Add main product image first
+    if (product?.image_url || product?.imageUrl || product?.primaryImage) {
+      const mainImage = product.image_url || product.imageUrl || product.primaryImage
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace(/\/api$/, "")
+      const fullImageUrl = mainImage.startsWith("/uploads") ? `${apiBase}${mainImage}` : mainImage
+      images.push(fullImageUrl)
     }
+    
+    // Add additional images from product.images array
+    if (product?.images?.length > 0) {
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace(/\/api$/, "")
+      images.push(...product.images.map((img) => {
+        const imageUrl = img.url || img.image_url
+        return imageUrl.startsWith("/uploads") ? `${apiBase}${imageUrl}` : imageUrl
+      }))
+    }
+    
+    // Add variant image if selected
     if (selectedVariant?.image) {
       images.unshift(selectedVariant.image)
     }
+    
     return images
   }
 

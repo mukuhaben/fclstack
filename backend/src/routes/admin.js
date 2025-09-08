@@ -96,22 +96,30 @@ router.get("/dashboard", requireRole(["admin"]), async (req, res) => {
 router.get("/sales-agents", requireRole(["admin"]), async (req, res) => {
   try {
     const result = await query(
-      `SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at, COUNT(customers.id) as customer_count, COALESCE(SUM(o.total_amount), 0) as total_sales FROM users u LEFT JOIN users customers ON customers.sales_agent_id = u.id LEFT JOIN orders o ON o.user_id = customers.id AND o.status = 'delivered' WHERE u.role = 'sales_agent' GROUP BY u.id, u.name, u.email, u.phone, u.is_active, u.created_at ORDER BY u.created_at DESC`,
-    )
+      `SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at, u.profile_image, u.id_scan_url, u.id_number,
+              COUNT(cust.id) as customers_count, COALESCE(SUM(o.total_amount), 0) as total_sales
+       FROM users u
+       LEFT JOIN users cust ON cust.sales_agent_id = u.id
+       LEFT JOIN orders o ON o.user_id = cust.id AND o.status = 'delivered'
+       WHERE u.role = 'sales_agent'
+       GROUP BY u.id, u.name, u.email, u.phone, u.is_active, u.created_at, u.profile_image, u.id_scan_url, u.id_number
+       ORDER BY u.created_at DESC`)
 
-    res.json({
-      success: true,
-      salesAgents: result.rows.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        email: agent.email,
-        phone: agent.phone,
-        isActive: agent.is_active,
-        customerCount: Number.parseInt(agent.customer_count),
-        totalSales: Number.parseFloat(agent.total_sales),
-        createdAt: agent.created_at,
-      })),
-    })
+    const data = result.rows.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      email: agent.email,
+      phone: agent.phone,
+      status: agent.is_active ? 'active' : 'suspended',
+      photo_url: agent.profile_image || null,
+      id_scan_url: agent.id_scan_url || null,
+      idNumber: agent.id_number || null,
+      customers_count: Number.parseInt(agent.customers_count || 0),
+      total_sales: Number.parseFloat(agent.total_sales || 0),
+      created_at: agent.created_at,
+    }))
+
+    res.json({ success: true, data })
   } catch (error) {
     console.error("Sales agents fetch error:", error)
     res.status(500).json({ error: "Internal server error" })
@@ -121,40 +129,90 @@ router.get("/sales-agents", requireRole(["admin"]), async (req, res) => {
 // POST /api/admin/sales-agents - Create new sales agent
 router.post("/sales-agents", requireRole(["admin"]), async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body
+    const { name, email, phone, idNumber, photo_url, id_scan_url, status } = req.body
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Name, email, and password are required" })
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and email are required" })
     }
 
-    // Check if email already exists
     const existingUser = await query("SELECT id FROM users WHERE email = $1", [email])
     if (existingUser.rows.length > 0) {
       return res.status(409).json({ error: "User with this email already exists" })
     }
 
-    const passwordHash = hashPassword(password)
+    const defaultPassword = "Agent@12345"
+    const passwordHash = hashPassword(defaultPassword)
 
     const result = await query(
-      "INSERT INTO users (name, email, phone, password_hash, role) VALUES ($1, $2, $3, $4, 'sales_agent') RETURNING id, name, email, phone, created_at",
-      [name, email, phone || null, passwordHash],
+      `INSERT INTO users (name, email, phone, password_hash, role, is_active, profile_image, id_scan_url, id_number)
+       VALUES ($1,$2,$3,$4,'sales_agent',$5,$6,$7,$8)
+       RETURNING id, name, email, phone, is_active, profile_image, id_scan_url, id_number, created_at`,
+      [name, email, phone || null, passwordHash, (status || 'active') === 'active', photo_url || null, id_scan_url || null, idNumber || null],
     )
 
-    const salesAgent = result.rows[0]
-
-    res.status(201).json({
-      success: true,
-      salesAgent: {
-        id: salesAgent.id,
-        name: salesAgent.name,
-        email: salesAgent.email,
-        phone: salesAgent.phone,
-        createdAt: salesAgent.created_at,
-      },
-      message: "Sales agent created successfully and will appear in registration form",
-    })
+    const a = result.rows[0]
+    res.status(201).json({ success: true, data: {
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      phone: a.phone,
+      status: a.is_active ? 'active' : 'suspended',
+      photo_url: a.profile_image,
+      id_scan_url: a.id_scan_url,
+      idNumber: a.id_number,
+      created_at: a.created_at,
+    } })
   } catch (error) {
     console.error("Sales agent creation error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+// PUT /api/admin/sales-agents/:id - Update sales agent
+router.put("/sales-agents/:id", requireRole(["admin"]), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, email, phone, idNumber, photo_url, id_scan_url, status } = req.body
+    const result = await query(
+      `UPDATE users SET 
+          name = COALESCE($1,name),
+          email = COALESCE($2,email),
+          phone = COALESCE($3,phone),
+          id_number = COALESCE($4,id_number),
+          profile_image = COALESCE($5,profile_image),
+          id_scan_url = COALESCE($6,id_scan_url),
+          is_active = COALESCE($7,is_active),
+          updated_at = NOW()
+       WHERE id = $8 AND role = 'sales_agent'
+       RETURNING id, name, email, phone, is_active, profile_image, id_scan_url, id_number, updated_at`,
+      [name, email, phone, idNumber, photo_url, id_scan_url, status ? status === 'active' : null, id],
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Sales agent not found" })
+    }
+    const a = result.rows[0]
+    res.json({ success: true, data: {
+      id: a.id, name: a.name, email: a.email, phone: a.phone,
+      status: a.is_active ? 'active' : 'suspended',
+      photo_url: a.profile_image, id_scan_url: a.id_scan_url, idNumber: a.id_number,
+    } })
+  } catch (error) {
+    console.error("Sales agent update error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+// PATCH /api/admin/sales-agents/:id/status - Update status
+router.patch("/sales-agents/:id/status", requireRole(["admin"]), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+    const isActive = status === 'active'
+    const result = await query("UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2 AND role = 'sales_agent' RETURNING id, is_active", [isActive, id])
+    if (result.rows.length === 0) return res.status(404).json({ error: "Sales agent not found" })
+    res.json({ success: true, data: { id: result.rows[0].id, status: result.rows[0].is_active ? 'active' : 'suspended' } })
+  } catch (error) {
+    console.error("Sales agent status update error:", error)
     res.status(500).json({ error: "Internal server error" })
   }
 })
@@ -263,19 +321,22 @@ router.get("/top-products", requireRole(["admin"]), async (req, res) => {
   }
 })
 
-// GET /api/admin/suppliers - Get all suppliers
+// GET /api/admin/suppliers - Get all suppliers (with subcategories)
 router.get("/suppliers", requireRole(["admin"]), async (req, res) => {
   try {
     const result = await query(
-      `SELECT id, name, email, phone, city, status, created_at as createdDate 
-       FROM suppliers 
-       WHERE deleted_at IS NULL 
-       ORDER BY created_at DESC`,
-    )
+      `SELECT s.id, s.name, s.email, s.phone, s.status, s.created_at as createdDate,
+              COALESCE(json_agg(sc.name) FILTER (WHERE sc.name IS NOT NULL), '[]') as subcategories
+       FROM suppliers s
+       LEFT JOIN supplier_subcategories ss ON ss.supplier_id = s.id
+       LEFT JOIN subcategories sc ON ss.subcategory_id = sc.id
+       WHERE s.deleted_at IS NULL
+       GROUP BY s.id
+       ORDER BY s.created_at DESC`)
 
     res.json({
       success: true,
-      suppliers: result.rows || [],
+      suppliers: (result.rows || []).map(r => ({...r, subcategories: Array.isArray(r.subcategories) ? r.subcategories : []})),
     })
   } catch (error) {
     console.error("Suppliers fetch error:", error)
@@ -287,26 +348,39 @@ router.get("/suppliers", requireRole(["admin"]), async (req, res) => {
   }
 })
 
-// POST /api/admin/suppliers - Create new supplier
+// POST /api/admin/suppliers - Create new supplier (with subcategories and pack rules)
 router.post("/suppliers", requireRole(["admin"]), async (req, res) => {
   try {
-    const { name, email, phone, city, status = "active" } = req.body
+    const { name, email, phone, status = "active", subcategories = [], pack_rules = {}, requires_confirmation = true, notes = null, special_offers = null, priority_flag = false } = req.body
 
-    if (!name || !email || !phone || !city) {
+    if (!name || !email || !phone) {
       return res.status(400).json({
         success: false,
-        error: "Name, email, phone, and city are required",
+        error: "Name, email and phone are required",
       })
     }
 
     const result = await query(
-      "INSERT INTO suppliers (name, email, phone, city, status) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [name, email, phone, city, status],
+      "INSERT INTO suppliers (name, email, phone, status, requires_confirmation, pack_unit, moq, lead_time_days, notes, special_offers, priority_flag) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
+      [name, email, phone, status, requires_confirmation, pack_rules.pack_unit || null, pack_rules.moq || null, pack_rules.lead_time_days || null, notes || pack_rules.notes || null, special_offers || null, priority_flag],
     )
+
+    const supplier = result.rows[0]
+
+    // Attach subcategories
+    if (Array.isArray(subcategories) && subcategories.length > 0) {
+      // subcategories provided as names; map to ids
+      for (const subcatName of subcategories) {
+        const sc = await query("SELECT sc.id FROM subcategories sc WHERE sc.name ILIKE $1 LIMIT 1", [subcatName])
+        if (sc.rows[0]) {
+          await query("INSERT INTO supplier_subcategories (supplier_id, subcategory_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [supplier.id, sc.rows[0].id])
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,
-      supplier: result.rows[0],
+      supplier,
       message: "Supplier created successfully",
     })
   } catch (error) {
@@ -318,15 +392,15 @@ router.post("/suppliers", requireRole(["admin"]), async (req, res) => {
   }
 })
 
-// PUT /api/admin/suppliers/:id - Update supplier
+// PUT /api/admin/suppliers/:id - Update supplier (with subcategories and pack rules)
 router.put("/suppliers/:id", requireRole(["admin"]), async (req, res) => {
   try {
     const { id } = req.params
-    const { name, email, phone, city, status } = req.body
+    const { name, email, phone, status, subcategories = [], pack_rules = {}, requires_confirmation, notes, special_offers, priority_flag } = req.body
 
     const result = await query(
-      "UPDATE suppliers SET name = $1, email = $2, phone = $3, city = $4, status = $5, updated_at = NOW() WHERE id = $6 AND deleted_at IS NULL RETURNING *",
-      [name, email, phone, city, status, id],
+      "UPDATE suppliers SET name = COALESCE($1,name), email = COALESCE($2,email), phone = COALESCE($3,phone), status = COALESCE($4,status), requires_confirmation = COALESCE($5,requires_confirmation), pack_unit = COALESCE($6,pack_unit), moq = COALESCE($7,moq), lead_time_days = COALESCE($8,lead_time_days), notes = COALESCE($9,notes), special_offers = COALESCE($10,special_offers), priority_flag = COALESCE($11,priority_flag), updated_at = NOW() WHERE id = $12 AND deleted_at IS NULL RETURNING *",
+      [name, email, phone, status, requires_confirmation, pack_rules.pack_unit, pack_rules.moq, pack_rules.lead_time_days, notes || pack_rules.notes, special_offers, priority_flag, id],
     )
 
     if (result.rows.length === 0) {
@@ -334,6 +408,17 @@ router.put("/suppliers/:id", requireRole(["admin"]), async (req, res) => {
         success: false,
         error: "Supplier not found",
       })
+    }
+
+    // Reset and set subcategories mapping
+    await query("DELETE FROM supplier_subcategories WHERE supplier_id = $1", [id])
+    if (Array.isArray(subcategories)) {
+      for (const subcatName of subcategories) {
+        const sc = await query("SELECT sc.id FROM subcategories sc WHERE sc.name ILIKE $1 LIMIT 1", [subcatName])
+        if (sc.rows[0]) {
+          await query("INSERT INTO supplier_subcategories (supplier_id, subcategory_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, sc.rows[0].id])
+        }
+      }
     }
 
     res.json({
@@ -377,6 +462,35 @@ router.delete("/suppliers/:id", requireRole(["admin"]), async (req, res) => {
       success: false,
       error: "Internal server error",
     })
+  }
+})
+
+// PATCH /api/admin/suppliers/:id/status - update supplier status (suspend/reactivate)
+router.patch("/suppliers/:id/status", requireRole(["admin"]), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+    const result = await query("UPDATE suppliers SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status", [status, id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Supplier not found" })
+    }
+    res.json({ success: true, message: "Supplier status updated", data: result.rows[0] })
+  } catch (error) {
+    console.error("Supplier status update error:", error)
+    res.status(500).json({ success: false, error: "Internal server error" })
+  }
+})
+
+// GET /api/admin/suppliers/validate-email - uniqueness check
+router.get("/suppliers/validate-email", requireRole(["admin"]), async (req, res) => {
+  try {
+    const { email, excludeId } = req.query
+    if (!email) return res.json({ unique: false })
+    const result = await query("SELECT id FROM suppliers WHERE email = $1 AND deleted_at IS NULL", [email])
+    const exists = result.rows.length > 0 && (!excludeId || result.rows[0].id != excludeId)
+    res.json({ unique: !exists })
+  } catch (error) {
+    res.json({ unique: true })
   }
 })
 
