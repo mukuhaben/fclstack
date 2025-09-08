@@ -79,7 +79,9 @@ export default function SalesAgentAdminPanel() {
   const refreshAgents = async () => {
     try {
       const res = await adminAPI.getSalesAgents()
-      const data = res?.data?.data || res?.data || []
+      const data = res?.data?.data || res?.data?.salesAgents || res?.data || []
+      const res = await adminAPI.getSalesAgents()
+      const data = res?.data?.data || res?.data?.salesAgents || res?.data || []
       setAgents(Array.isArray(data) ? data : [])
     } catch (error) {
       // ignore

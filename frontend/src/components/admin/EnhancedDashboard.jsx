@@ -122,6 +122,11 @@ const ChartContainer = ({ title, children, height = 400, actions, quadrant = "" 
         boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
         border: "1px solid rgba(0,0,0,0.08)",
         "&:hover": { boxShadow: "0 12px 40px rgba(0,0,0,0.15)", transform: "translateY(-3px)" },
+        animation: 'slideIn 600ms ease-out',
+        '@keyframes slideIn': {
+          from: { opacity: 0, transform: 'translateX(-16px)' },
+          to: { opacity: 1, transform: 'translateX(0)' },
+        },
         ...(isFullscreen && {
           position: "fixed",
           top: 0,
@@ -437,17 +442,17 @@ const EnhancedDashboard = () => {
       <MetricsCards />
 
       {/* Four-quadrant cartesian plane containing primary Supplier Surplus vs Sold and other charts */}
-      <Grid container spacing={3} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={6} lg={6}>
           <SupplierSurplusVsSold />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} lg={6}>
           <SalesByCategoryChart />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} lg={6}>
           <CategoryChart />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} lg={6}>
           <CustomerAcquisitionChart />
         </Grid>
       </Grid>

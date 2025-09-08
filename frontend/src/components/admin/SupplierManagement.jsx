@@ -91,7 +91,7 @@ export default function SupplierManagement() {
       setLoading(true)
       setError(null)
       const response = await adminAPI.getSuppliers()
-      const data = response?.data?.data || response?.suppliers || []
+      const data = response?.data?.suppliers || response?.data?.data || []
       setSuppliers(Array.isArray(data) ? data : [])
     } catch (error) {
       setError("Failed to load suppliers. Please try again.")

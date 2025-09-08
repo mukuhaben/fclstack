@@ -5,18 +5,12 @@ import { Box, Paper, Typography, Grid, Card, CardContent, Table, TableHead, Tabl
 import { adminAPI } from "../../services/interceptor"
 
 const AlertsManagement = () => {
-  const [unackedPOs, setUnackedPOs] = useState([])
   const [emailFailedPOs, setEmailFailedPOs] = useState([])
   const [underDelivery, setUnderDelivery] = useState([])
   const [overDelivery, setOverDelivery] = useState([])
 
   const refresh = async () => {
     try {
-      const resPending = await adminAPI.getPurchaseOrders({ status: "pending" })
-      const dataPending = resPending?.data?.data || resPending?.data || []
-      const resSent = await adminAPI.getPurchaseOrders({ status: "sent" })
-      const dataSent = resSent?.data?.data || resSent?.data || []
-      setUnackedPOs([...(Array.isArray(dataPending) ? dataPending : []), ...(Array.isArray(dataSent) ? dataSent : [])])
       const resFailed = await adminAPI.getPurchaseOrders({ status: "email_failed" })
       const dataFailed = resFailed?.data?.data || resFailed?.data || []
       setEmailFailedPOs(Array.isArray(dataFailed) ? dataFailed : [])
@@ -36,7 +30,6 @@ const AlertsManagement = () => {
       setUnderDelivery(under)
       setOverDelivery(over)
     } catch (e) {
-      setUnackedPOs([])
       setEmailFailedPOs([])
       setUnderDelivery([])
       setOverDelivery([])
@@ -55,14 +48,6 @@ const AlertsManagement = () => {
       </Box>
 
       <Grid container spacing={3} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: "#fff3e0", border: "1px solid #ffcc02" }}>
-            <CardContent sx={{ textAlign: "center", py: 1.5 }}>
-              <Typography variant="h5" sx={{ fontWeight: 600, color: "#f57c00" }}>{unackedPOs.length}</Typography>
-              <Typography variant="body2" color="text.secondary">POs Not Acknowledged</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ bgcolor: "#ffebee", border: "1px solid #ffcdd2" }}>
             <CardContent sx={{ textAlign: "center", py: 1.5 }}>
@@ -89,33 +74,7 @@ const AlertsManagement = () => {
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Unacknowledged Purchase Orders</Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Supplier</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Order Date</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {unackedPOs.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center">No unacknowledged purchase orders</TableCell></TableRow>
-            ) : unackedPOs.map((po) => (
-              <TableRow key={po.id}>
-                <TableCell>{po.orderNumber || po.poNumber}</TableCell>
-                <TableCell>{po.supplier?.name || po.supplier}</TableCell>
-                <TableCell>{po.orderDate}</TableCell>
-                <TableCell>{po.expectedDelivery || po.dueDate}</TableCell>
-                <TableCell><Chip label={(po.status || "pending").toUpperCase()} size="small" color={po.status === "sent" ? "info" : "warning"} /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
+      {/* Unacknowledged POs are displayed under Purchase Orders. Avoid duplication here. */}
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Under / Over Deliveries</Typography>
