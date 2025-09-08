@@ -310,6 +310,9 @@ export const adminAPI = {
   createSupplier: (supplierData) => api.post("/admin/suppliers", supplierData),
   updateSupplier: (id, supplierData) => api.put(`/admin/suppliers/${id}`, supplierData),
   deleteSupplier: (id) => api.delete(`/admin/suppliers/${id}`),
+  updateSupplierStatus: (id, status) => api.patch(`/admin/suppliers/${id}/status`, { status }),
+  validateSupplierEmail: (email, excludeId) =>
+    api.get("/admin/suppliers/validate-email", { params: { email, excludeId } }),
   getCustomers: (params) => api.get("/admin/customers", { params }),
   updateCustomer: (id, customerData) => api.put(`/admin/customers/${id}`, customerData),
   deleteCustomer: (id) => api.delete(`/admin/customers/${id}`),
