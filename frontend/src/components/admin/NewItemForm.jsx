@@ -56,6 +56,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     productBarcode: "",
     etimsRefCode: "",
     expiryDate: "",
+    class: "Standard",
     qty1Min: "1",
     qty1Max: "3",
     sellingPrice1: "",
@@ -110,6 +111,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     productBarcode: "",
     etimsRefCode: "",
     expiryDate: "",
+    class: "Standard",
     image: null,
     imagePreview: null,
     imageUrl: "",
@@ -621,6 +623,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
         product_barcode: formData.productBarcode || null,
         etims_ref_code: formData.etimsRefCode || null,
         expiry_date: formData.expiryDate || null,
+        class: formData.class || "Standard",
         image_url: primaryImageUrl || null,
         product_images: formData.images.map((img, index) => ({
           image_url: img.image_url,
@@ -704,6 +707,7 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
           productBarcode: "",
           etimsRefCode: "",
           expiryDate: "",
+          class: "Standard",
           qty1Min: "1",
           qty1Max: "3",
           sellingPrice1: "",
@@ -1019,6 +1023,24 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
                         No subcategories available for this category
                       </Typography>
                     )}
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Shipping Class</InputLabel>
+                      <Select name="class" value={formData.class} onChange={handleChange} label="Shipping Class">
+                        <MenuItem value="Standard">Standard</MenuItem>
+                        <MenuItem value="Small"></MenuItem>
+                        <MenuItem value="Medium">Medium</MenuItem>
+                        <MenuItem value="Large">Large</MenuItem>
+                        <MenuItem value="Heavy">Heavy</MenuItem>
+                        <MenuItem value="Fragile">Fragile</MenuItem>
+                       
+                      </Select>
+                    </FormControl>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                      Select the appropriate shipping class for this product
+                    </Typography>
                   </Grid>
 
                   <Grid item xs={12}>

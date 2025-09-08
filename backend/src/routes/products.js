@@ -112,6 +112,7 @@ router.get("/", async (req, res) => {
                 COALESCE(p.cost_price, 0) as cost_price, 
                 COALESCE(p.vat_rate, 16) as vat_rate, 
                 COALESCE(p.cashback_rate, 0) as cashback_rate,
+                COALESCE(p.class, 'Standard') as class,
                 COALESCE(c.name, 'Uncategorized') as category_name, 
                 COALESCE(c.slug, '') as category_slug,
                 p.category_id,
@@ -129,7 +130,21 @@ router.get("/", async (req, res) => {
                     'selling_price', ppt.selling_price,
                     'sellingPrice', ppt.selling_price
                   ) ORDER BY ppt.min_quantity ASC
-                ) FILTER (WHERE ppt.id IS NOT NULL) as pricing_tiers
+                ) FILTER (WHERE ppt.id IS NOT NULL) as pricing_tiers,
+               array_agg(
+  jsonb_build_object(
+    'id', pv.id,
+    'variant_type', pv.variant_type,
+    'variantType', pv.variant_type,
+    'variant_value', pv.variant_value,
+    'variantValue', pv.variant_value,
+    'price_adjustment', COALESCE(pv.price_adjustment, 0),
+    'priceAdjustment', COALESCE(pv.price_adjustment, 0),
+    'stock_quantity', COALESCE(pv.stock_quantity, 0),
+    'stockQuantity', COALESCE(pv.stock_quantity, 0)
+  ) ORDER BY pv.variant_type, pv.variant_value
+) FILTER (WHERE pv.id IS NOT NULL) as variants
+
          FROM products p
          LEFT JOIN categories c ON p.category_id = c.id
          LEFT JOIN subcategories sc ON p.subcategory_id = sc.id AND sc.category_id = c.id
@@ -138,9 +153,10 @@ router.get("/", async (req, res) => {
            SELECT MIN(id) FROM product_images WHERE product_id = p.id
          )
          LEFT JOIN product_pricing_tiers ppt ON p.id = ppt.product_id
+         LEFT JOIN product_variants pv ON p.id = pv.product_id
          ${whereClause}
          GROUP BY p.id, p.name, p.description, p.longer_description, p.price, p.sku, p.product_code, p.is_active, p.created_at, 
-                  p.image_url, p.cost_price, p.vat_rate, p.cashback_rate, c.name, c.slug, p.category_id, 
+                  p.image_url, p.cost_price, p.vat_rate, p.cashback_rate, p.class, c.name, c.slug, p.category_id, 
                   sc.name, sc.slug, p.subcategory_id, pi_primary.image_url, pi_first.image_url
          ORDER BY p.${sortBy === "name" ? "name" : "created_at"} ${sortOrder.toUpperCase()}
          LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
@@ -182,6 +198,8 @@ router.get("/", async (req, res) => {
           vatRate: Number.parseFloat(product.vat_rate || 16),
           cashbackRate: Number.parseFloat(product.cashback_rate || 0),
           cashback_rate: Number.parseFloat(product.cashback_rate || 0), // snake_case alias
+          class: product.class || "Standard", // Added shipping class field
+          shippingClass: product.class || "Standard", // camelCase alias
           category: {
             id: product.category_id,
             name: product.category_name || "Uncategorized",
@@ -196,6 +214,7 @@ router.get("/", async (req, res) => {
             : null,
           pricing_tiers: product.pricing_tiers || [], // snake_case for consistency
           pricingTiers: product.pricing_tiers || [], // camelCase alias
+          variants: product.variants || [], // Added variants support
           stockQuantity: 0, // placeholder - add stock logic if needed
           stock: 0, // alias for frontend
           createdAt: product.created_at,
@@ -368,7 +387,27 @@ router.get("/:id", async (req, res) => {
                 'id', pi.id,
                 'image_url', pi.image_url,
                 'is_primary', pi.is_primary
-              ) ORDER BY pi.is_primary DESC, pi.created_at ASC) FILTER (WHERE pi.id IS NOT NULL) as images
+              ) ORDER BY pi.is_primary DESC, pi.created_at ASC) FILTER (WHERE pi.id IS NOT NULL) as images,
+              array_agg(DISTINCT jsonb_build_object(
+                'tier', ppt.id,
+                'min_quantity', ppt.min_quantity,
+                'minQuantity', ppt.min_quantity,
+                'max_quantity', ppt.max_quantity,
+                'maxQuantity', ppt.max_quantity,
+                'selling_price', ppt.selling_price,
+                'sellingPrice', ppt.selling_price
+              ) ORDER BY ppt.min_quantity ASC) FILTER (WHERE ppt.id IS NOT NULL) as pricing_tiers,
+              array_agg(DISTINCT jsonb_build_object(
+                'id', pv.id,
+                'variant_type', pv.variant_type,
+                'variantType', pv.variant_type,
+                'variant_value', pv.variant_value,
+                'variantValue', pv.variant_value,
+                'price_adjustment', COALESCE(pv.price_adjustment, 0),
+                'priceAdjustment', COALESCE(pv.price_adjustment, 0),
+                'stock_quantity', COALESCE(pv.stock_quantity, 0),
+                'stockQuantity', COALESCE(pv.stock_quantity, 0)
+              ) ORDER BY pv.variant_type, pv.variant_value) FILTER (WHERE pv.id IS NOT NULL) as variants
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
@@ -377,6 +416,8 @@ router.get("/:id", async (req, res) => {
        LEFT JOIN product_images pi_first ON p.id = pi_first.product_id AND pi_first.id = (
          SELECT MIN(id) FROM product_images WHERE product_id = p.id
        )
+       LEFT JOIN product_pricing_tiers ppt ON p.id = ppt.product_id
+       LEFT JOIN product_variants pv ON p.id = pv.product_id
        WHERE p.id = $1 AND p.is_active = true
        GROUP BY p.id, c.name, sc.name, pi_primary.image_url, pi_first.image_url`,
       [id],
@@ -402,6 +443,9 @@ router.get("/:id", async (req, res) => {
         longerDescription: product.longer_description,
         price: Number.parseFloat(product.price),
         sku: product.sku,
+        itemCode: product.product_code, // Added product code support
+        product_code: product.product_code,
+        productCode: product.product_code,
         imageUrl: product.primary_image_url,
         image: product.primary_image_url,
         primaryImage: product.primary_image_url,
@@ -409,6 +453,8 @@ router.get("/:id", async (req, res) => {
         vatRate: product.vat_rate,
         cashbackRate: product.cashback_rate,
         cashback_rate: product.cashback_rate,
+        class: product.class || "Standard", // Added shipping class field
+        shippingClass: product.class || "Standard", // camelCase alias
         category: {
           id: product.category_id,
           name: product.category_name,
@@ -421,6 +467,9 @@ router.get("/:id", async (req, res) => {
           : null,
         images: allImageUrls,
         productImages: images,
+        pricingTiers: product.pricing_tiers || [], // Added pricing tiers support
+        pricing_tiers: product.pricing_tiers || [],
+        variants: product.variants || [], // Added variants support
         stockQuantity: 0,
         stock: 0,
         createdAt: product.created_at,
@@ -428,7 +477,7 @@ router.get("/:id", async (req, res) => {
     })
   } catch (error) {
     console.error("Product fetch error:", error)
-    res.status(500).json({ error: "Internal server error" })
+    res.status(500).json({ error: "Failed to fetch product" })
   }
 })
 
@@ -616,6 +665,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
         cost_price,
         vat_rate = 16,
         cashback_rate = 0,
+        class: shippingClass = "Standard", // Added class field support
         reorder_level,
         order_level,
         alert_quantity,
@@ -628,6 +678,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
         image_url,
         pricing_tiers = [],
         product_images = [],
+        variants = [], // Added variants support
       } = req.body
 
       if (!product_name || !product_code || !category_name || !cost_price) {
@@ -667,11 +718,11 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
       const productResult = await client.query(
         `INSERT INTO products (
           name, product_code, description, longer_description, category_id, subcategory_id, 
-          cost_price, vat_rate, cashback_rate, reorder_level, order_level, 
+          cost_price, vat_rate, cashback_rate, class, reorder_level, order_level, 
           alert_quantity, reorder_active, uom, pack_size, product_barcode, etims_ref_code, 
           expiry_date, image_url, price
         ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) 
          RETURNING *`,
         [
           product_name,
@@ -683,6 +734,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
           cost_price,
           vat_rate,
           cashback_rate,
+          shippingClass, // Added class field to insert
           reorder_level || null,
           order_level || null,
           alert_quantity || null,
@@ -750,46 +802,34 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
         }
       }
 
+      if (variants && Array.isArray(variants) && variants.length > 0) {
+        for (const variant of variants) {
+          const variantType = variant.variant_type || variant.variantType
+          const variantValue = variant.variant_value || variant.variantValue
+          const priceAdjustment = variant.price_adjustment || variant.priceAdjustment || 0
+          const stockQuantity = variant.stock_quantity || variant.stockQuantity || 0
+
+          if (variantType && variantValue) {
+            await client.query(
+              `INSERT INTO product_variants (product_id, variant_type, variant_value, price_adjustment, stock_quantity) 
+               VALUES ($1, $2, $3, $4, $5)`,
+              [product.id, variantType, variantValue, priceAdjustment, stockQuantity],
+            )
+          }
+        }
+      }
+
       return product
     })
 
-    console.log("[v0] Product creation completed successfully")
-
     res.status(201).json({
       success: true,
-      data: {
-        id: result.id,
-        name: result.name,
-        productCode: result.product_code,
-        item_code: result.product_code, // snake_case for consistency with cart/orders
-        itemCode: result.product_code, // camelCase alias
-        description: result.description,
-        longer_description: result.longer_description,
-        longerDescription: result.longer_description,
-        categoryId: result.category_id,
-        subcategoryId: result.subcategory_id,
-        costPrice: Number.parseFloat(result.cost_price),
-        imageUrl: result.image_url,
-        image: result.image_url,
-        primaryImage: result.image_url,
-        createdAt: result.created_at,
-        stockQuantity: 0,
-        stock: 0,
-      },
-      message: "Product created successfully and will appear in category listings",
+      message: "Product created successfully",
+      data: result,
     })
   } catch (error) {
-    console.error("[v0] Product creation error:", error)
-    if (error.message.includes("duplicate key value")) {
-      // Unique constraint violation
-      res.status(409).json({ error: "Product code already exists" })
-    } else if (error.message.includes("Category not found")) {
-      res.status(404).json({ error: error.message })
-    } else if (error.message.includes("required")) {
-      res.status(400).json({ error: error.message })
-    } else {
-      res.status(500).json({ error: "Internal server error" })
-    }
+    console.error("Product creation error:", error)
+    res.status(500).json({ error: error.message || "Failed to create product" })
   }
 })
 
@@ -1002,3 +1042,7 @@ router.delete("/:id", requireRole(["admin"]), async (req, res) => {
 })
 
 export default router
+  
+
+
+
