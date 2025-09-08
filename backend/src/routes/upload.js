@@ -44,7 +44,7 @@ const upload = multer({
   },
 })
 
-// POST /api/upload/product-images - Upload product images
+// POST /api/upload/product-images - Upload product images (for existing products)
 router.post("/product-images", requireRole(["admin"]), upload.array("images", 5), async (req, res) => {
   try {
     const { productId } = req.body
@@ -87,6 +87,11 @@ router.post("/product-images", requireRole(["admin"]), upload.array("images", 5)
       )
 
       uploadedImages.push(result.rows[0])
+    }
+
+    // Update product's main image_url if this is the first image
+    if (isFirstImage && uploadedImages.length > 0) {
+      await query("UPDATE products SET image_url = $1 WHERE id = $2", [uploadedImages[0].image_url, productId])
     }
 
     res.json({

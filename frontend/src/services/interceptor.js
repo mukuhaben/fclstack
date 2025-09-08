@@ -343,7 +343,7 @@ export const uploadAPI = {
   },
 
   uploadMultipleProductImages: (formData) => {
-    return api.post("/upload/product-images", formData, {
+    return api.post("/upload/multiple-product-images", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

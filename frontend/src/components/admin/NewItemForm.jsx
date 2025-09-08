@@ -332,7 +332,11 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     setImageUploading(true)
     try {
       const token = localStorage.getItem("token")
-      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}")
+      const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}")
+      
+      // Use currentUser first, fallback to userProfile
+      const user = currentUser.id ? currentUser : userProfile
 
       console.log("[v0] Current user for multiple upload:", user)
       console.log("[v0] Token exists:", !!token)
@@ -465,7 +469,11 @@ const NewItemForm = ({ editItem, onSave, onCancel, onRefresh }) => {
     setImageUploading(true)
     try {
       const token = localStorage.getItem("token")
-      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}")
+      const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}")
+      
+      // Use currentUser first, fallback to userProfile
+      const user = currentUser.id ? currentUser : userProfile
 
       console.log("[v0] Current user:", user)
       console.log("[v0] Token exists:", !!token)
