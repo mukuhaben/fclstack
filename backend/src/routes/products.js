@@ -1,6 +1,7 @@
 import express from "express"
 import { query, transaction } from "../utils/database.js"
 import { requireRole } from "../middleware/auth.js"
+import { resolvePublicUrl } from "../utils/images.js"
 
 const router = express.Router()
 
@@ -191,9 +192,9 @@ router.get("/", async (req, res) => {
           product_code: product.item_code || "", // alias for backward compatibility
           productCode: product.item_code || "", // camelCase alias
           isActive: product.is_active !== false,
-          imageUrl: product.primary_image || product.image_url || "",
-          image: product.primary_image || product.image_url || "", // alias for frontend
-          primaryImage: product.primary_image || product.image_url || "", // explicit primary image
+          imageUrl: resolvePublicUrl(product.primary_image || product.image_url),
+          image: resolvePublicUrl(product.primary_image || product.image_url), // alias for frontend
+          primaryImage: resolvePublicUrl(product.primary_image || product.image_url), // explicit primary image
           costPrice: Number.parseFloat(product.cost_price || 0),
           vatRate: Number.parseFloat(product.vat_rate || 16),
           cashbackRate: Number.parseFloat(product.cashback_rate || 0),
@@ -280,9 +281,9 @@ router.get("/", async (req, res) => {
             product_code: product.item_code || "",
             productCode: product.item_code || "",
             isActive: product.is_active !== false,
-            imageUrl: product.image_url || "",
-            image: product.image_url || "",
-            primaryImage: product.image_url || "",
+            imageUrl: resolvePublicUrl(product.image_url),
+            image: resolvePublicUrl(product.image_url),
+            primaryImage: resolvePublicUrl(product.image_url),
             costPrice: Number.parseFloat(product.price || 0),
             vatRate: 16,
             cashbackRate: Number.parseFloat(product.cashback_rate || 0),
@@ -362,7 +363,7 @@ router.get("/top", async (req, res) => {
       products: result.rows.map((product) => ({
         id: product.id,
         name: product.name,
-        imageUrl: product.image_url,
+        imageUrl: resolvePublicUrl(product.image_url),
         sales: Number.parseInt(product.sales_count || 0),
         revenue: `KSh ${Number.parseFloat(product.total_revenue || 0).toLocaleString()}`,
         trend: "up", // Default trend, could be calculated based on historical data
@@ -446,9 +447,9 @@ router.get("/:id", async (req, res) => {
         itemCode: product.product_code, // Added product code support
         product_code: product.product_code,
         productCode: product.product_code,
-        imageUrl: product.primary_image_url,
-        image: product.primary_image_url,
-        primaryImage: product.primary_image_url,
+        imageUrl: resolvePublicUrl(product.primary_image_url),
+        image: resolvePublicUrl(product.primary_image_url),
+        primaryImage: resolvePublicUrl(product.primary_image_url),
         costPrice: product.cost_price,
         vatRate: product.vat_rate,
         cashbackRate: product.cashback_rate,
@@ -465,8 +466,8 @@ router.get("/:id", async (req, res) => {
               name: product.subcategory_name,
             }
           : null,
-        images: allImageUrls,
-        productImages: images,
+        images: allImageUrls.map((u) => resolvePublicUrl(u)),
+        productImages: images.map((img) => ({ ...img, image_url: resolvePublicUrl(img.image_url) })),
         pricingTiers: product.pricing_tiers || [], // Added pricing tiers support
         pricing_tiers: product.pricing_tiers || [],
         variants: product.variants || [], // Added variants support
@@ -611,9 +612,9 @@ router.get("/subcategory/:subcategorySlug", async (req, res) => {
         product_code: product.item_code || "",
         productCode: product.item_code || "",
         isActive: product.is_active !== false,
-        imageUrl: product.primary_image || product.image_url || "",
-        image: product.primary_image || product.image_url || "",
-        primaryImage: product.primary_image || product.image_url || "",
+        imageUrl: resolvePublicUrl(product.primary_image || product.image_url),
+        image: resolvePublicUrl(product.primary_image || product.image_url),
+        primaryImage: resolvePublicUrl(product.primary_image || product.image_url),
         costPrice: Number.parseFloat(product.cost_price || 0),
         vatRate: Number.parseFloat(product.vat_rate || 16),
         cashbackRate: Number.parseFloat(product.cashback_rate || 0),
