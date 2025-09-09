@@ -443,7 +443,9 @@ const CategoryPage = () => {
                   <CardMedia
                     component="img"
                     height="200"
-                    image={product.image}
+                    image={product.image_url 
+      ? `${import.meta.env.VITE_API_URL}${product.image_url}` 
+      : "/placeholder.svg"}
                     alt={product.name}
                     sx={{ objectFit: "cover", cursor: "pointer", bgcolor: "#f5f5f5" }}
                     onClick={() => navigate(`/product-details/${product.id}`)}
