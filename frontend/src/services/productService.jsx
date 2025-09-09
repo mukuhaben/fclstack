@@ -47,10 +47,6 @@ class ProductService {
         subCategory: productData.subCategory,
         costPrice: Number.parseFloat(productData.costPrice) || 0,
         vatRate: Number.parseFloat(productData.vat) || 16.0,
-        stockUnits: Number.parseInt(productData.stockUnits) || 0,
-        alertQuantity: Number.parseInt(productData.alertQuantity) || 10,
-        unitOfMeasure: productData.uom || "PC",
-        packSize: Number.parseInt(productData.packSize) || 1,
         productBarcode: productData.productBarcode || "",
         etimsRefCode: productData.etimsRefCode || "",
         expiryDate: productData.expiryDate || null,
@@ -62,9 +58,6 @@ class ProductService {
         saCashback2ndPurchase: Number.parseFloat(productData.saCashback2ndPurchase) || 4.0,
         saCashback3rdPurchase: Number.parseFloat(productData.saCashback3rdPurchase) || 3.0,
         saCashback4thPurchase: Number.parseFloat(productData.saCashback4thPurchase) || 2.0,
-        reorderLevel: Number.parseInt(productData.reorderLevel) || 0,
-        orderLevel: Number.parseInt(productData.orderLevel) || 0,
-        reorderActive: productData.reorderActive !== false,
         pricingTiers: this.formatPricingTiers(productData),
       }
 

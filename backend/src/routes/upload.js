@@ -44,7 +44,7 @@ const upload = multer({
   },
 })
 
-// POST /api/upload/product-images - Upload product images
+// POST /api/upload/product-images - Upload product images (for existing products)
 router.post("/product-images", requireRole(["admin"]), upload.array("images", 5), async (req, res) => {
   try {
     const { productId } = req.body
@@ -87,6 +87,11 @@ router.post("/product-images", requireRole(["admin"]), upload.array("images", 5)
       )
 
       uploadedImages.push(result.rows[0])
+    }
+
+    // Update product's main image_url if this is the first image
+    if (isFirstImage && uploadedImages.length > 0) {
+      await query("UPDATE products SET image_url = $1 WHERE id = $2", [uploadedImages[0].image_url, productId])
     }
 
     res.json({
@@ -348,3 +353,14 @@ router.delete("/profile-picture", authenticateToken, async (req, res) => {
 })
 
 export default router
+// Generic route to support /api/upload/image/:type used by frontend
+router.post("/image/:type", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file
+    if (!file) return res.status(400).json({ error: "No image uploaded" })
+    const imageUrl = `/uploads/${file.filename}`
+    res.json({ success: true, imageUrl, url: imageUrl, image_url: imageUrl })
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Upload failed" })
+  }
+})

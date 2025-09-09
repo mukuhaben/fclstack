@@ -129,13 +129,6 @@ export const productsAPI = {
         cost_price: Number.parseFloat(productData.costPrice) || 0,
         vat_rate: Number.parseFloat(productData.vat) || 16,
         cashback_rate: Number.parseFloat(productData.cashbackRate) || 0,
-        stock_units: Number.parseInt(productData.stockUnits) || 0,
-        reorder_level: Number.parseInt(productData.reorderLevel) || null,
-        order_level: Number.parseInt(productData.orderLevel) || null,
-        alert_quantity: Number.parseInt(productData.alertQuantity) || null,
-        reorder_active: productData.reorderActive !== false,
-        uom: productData.uom || "PC",
-        pack_size: productData.packSize || null,
         product_barcode: productData.productBarcode || null,
         etims_ref_code: productData.etimsRefCode || null,
         expiry_date: productData.expiryDate || null,
@@ -203,7 +196,6 @@ export const productsAPI = {
       cost_price: productData.costPrice ? Number.parseFloat(productData.costPrice) : undefined,
       vat_rate: productData.vat ? Number.parseFloat(productData.vat) : undefined,
       cashback_rate: productData.cashbackRate ? Number.parseFloat(productData.cashbackRate) : undefined,
-      stock_units: productData.stockUnits ? Number.parseInt(productData.stockUnits) : undefined,
       image_url: productData.imageUrl,
       is_active: productData.isActive,
     }
@@ -312,10 +304,25 @@ export const adminAPI = {
   getSalesAgents: (params) => api.get("/admin/sales-agents", { params }), // Added sales agents management methods
   createSalesAgent: (agentData) => api.post("/admin/sales-agents", agentData),
   deleteSalesAgent: (id) => api.delete(`/admin/sales-agents/${id}`),
+  updateSalesAgent: (id, agentData) => api.put(`/admin/sales-agents/${id}`, agentData),
+  updateSalesAgentStatus: (id, status) => api.patch(`/admin/sales-agents/${id}/status`, { status }),
   getSuppliers: (params) => api.get("/admin/suppliers", { params }),
   createSupplier: (supplierData) => api.post("/admin/suppliers", supplierData),
   updateSupplier: (id, supplierData) => api.put(`/admin/suppliers/${id}`, supplierData),
   deleteSupplier: (id) => api.delete(`/admin/suppliers/${id}`),
+  updateSupplierStatus: (id, status) => api.patch(`/admin/suppliers/${id}/status`, { status }),
+  validateSupplierEmail: (email, excludeId) => api.get("/admin/suppliers/validate-email", { params: { email, excludeId } }),
+  // Purchase Orders
+  getPurchaseOrders: (params) => api.get("/admin/purchase-orders", { params }),
+  createPurchaseOrder: (poData, consumeVirtualStock = true) =>
+    api.post("/admin/purchase-orders", { ...poData, consume_virtual_stock: consumeVirtualStock }),
+  updatePurchaseOrder: (id, poData) => api.put(`/admin/purchase-orders/${id}`, poData),
+  updatePurchaseOrderStatus: (id, status) => api.patch(`/admin/purchase-orders/${id}/status`, { status }),
+  deletePurchaseOrder: (id) => api.delete(`/admin/purchase-orders/${id}`),
+  // GRNs
+  getGRNs: (params) => api.get("/admin/grns", { params }),
+  createGRN: (grnData) => api.post("/admin/grns", grnData),
+  updateGRN: (id, grnData) => api.put(`/admin/grns/${id}`, grnData),
   getCustomers: (params) => api.get("/admin/customers", { params }),
   updateCustomer: (id, customerData) => api.put(`/admin/customers/${id}`, customerData),
   deleteCustomer: (id) => api.delete(`/admin/customers/${id}`),
@@ -343,7 +350,7 @@ export const uploadAPI = {
   },
 
   uploadMultipleProductImages: (formData) => {
-    return api.post("/upload/product-images", formData, {
+    return api.post("/upload/multiple-product-images", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

@@ -283,6 +283,7 @@ router.get("/", async (req, res) => {
             imageUrl: product.image_url || "",
             image: product.image_url || "",
             primaryImage: product.image_url || "",
+            image_url: product.image_url || "",
             costPrice: Number.parseFloat(product.price || 0),
             vatRate: 16,
             cashbackRate: Number.parseFloat(product.cashback_rate || 0),
@@ -446,9 +447,10 @@ router.get("/:id", async (req, res) => {
         itemCode: product.product_code, // Added product code support
         product_code: product.product_code,
         productCode: product.product_code,
-        imageUrl: product.primary_image_url,
-        image: product.primary_image_url,
-        primaryImage: product.primary_image_url,
+        imageUrl: product.primary_image_url || product.image_url || "",
+        image: product.primary_image_url || product.image_url || "",
+        primaryImage: product.primary_image_url || product.image_url || "",
+        image_url: product.primary_image_url || product.image_url || "",
         costPrice: product.cost_price,
         vatRate: product.vat_rate,
         cashbackRate: product.cashback_rate,
@@ -614,6 +616,7 @@ router.get("/subcategory/:subcategorySlug", async (req, res) => {
         imageUrl: product.primary_image || product.image_url || "",
         image: product.primary_image || product.image_url || "",
         primaryImage: product.primary_image || product.image_url || "",
+        image_url: product.primary_image || product.image_url || "",
         costPrice: Number.parseFloat(product.cost_price || 0),
         vatRate: Number.parseFloat(product.vat_rate || 16),
         cashbackRate: Number.parseFloat(product.cashback_rate || 0),
@@ -714,6 +717,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
       }
 
       console.log("[v0] Creating product with primary image URL:", primaryImageUrl)
+      console.log("[v0] Product images array:", product_images)
 
       const productResult = await client.query(
         `INSERT INTO products (
@@ -753,7 +757,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
       console.log("[v0] Product created with ID:", product.id)
 
       if (product_images && Array.isArray(product_images) && product_images.length > 0) {
-        let hasPrimary = true
+        let hasPrimary = false
 
         for (let i = 0; i < product_images.length; i++) {
           const imageData = product_images[i]
@@ -765,7 +769,7 @@ router.post("/", requireRole(["admin"]), async (req, res) => {
           }
 
           if (imageUrl) {
-            console.log("[v0] Adding product image:", { imageUrl, isPrimary })
+            console.log("[v0] Adding product image:", { imageUrl, isPrimary, productId: product.id })
             await client.query("INSERT INTO product_images (product_id, image_url, is_primary) VALUES ($1, $2, $3)", [
               product.id,
               imageUrl,
