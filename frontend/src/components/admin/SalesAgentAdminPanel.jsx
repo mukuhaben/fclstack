@@ -80,8 +80,6 @@ export default function SalesAgentAdminPanel() {
     try {
       const res = await adminAPI.getSalesAgents()
       const data = res?.data?.data || res?.data?.salesAgents || res?.data || []
-      const res = await adminAPI.getSalesAgents()
-      const data = res?.data?.data || res?.data?.salesAgents || res?.data || []
       setAgents(Array.isArray(data) ? data : [])
     } catch (error) {
       // ignore
