@@ -5,29 +5,17 @@ import fs from "fs"
 import { fileURLToPath } from "url"
 import { query } from "../utils/database.js"
 import { authenticateToken, requireRole } from "../middleware/auth.js"
+import { uploadBufferToGcs, buildObjectKey, generateUniqueFilename, deleteFromGcs } from "../config/gcs.js"
+import { resolvePublicUrl } from "../utils/images.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const router = express.Router()
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../../uploads")
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
-    }
-    cb(null, uploadDir)
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname))
-  },
-})
-
+// Use memory storage; we stream to GCS
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -74,7 +62,9 @@ router.post("/product-images", requireRole(["admin"]), upload.array("images", 5)
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const imageUrl = `/uploads/${file.filename}`
+      const uniqueName = generateUniqueFilename(file.originalname)
+      const objectKey = buildObjectKey({ type: "products", filename: uniqueName })
+      const { publicUrl } = await uploadBufferToGcs({ buffer: file.buffer, destination: objectKey, contentType: file.mimetype })
       const isPrimary = isFirstImage && i === 0
 
       if (isPrimary) {
@@ -83,10 +73,11 @@ router.post("/product-images", requireRole(["admin"]), upload.array("images", 5)
 
       const result = await query(
         "INSERT INTO product_images (product_id, image_url, is_primary) VALUES ($1, $2, $3) RETURNING id, image_url, is_primary",
-        [productId, imageUrl, isPrimary],
+        [productId, objectKey, isPrimary],
       )
 
-      uploadedImages.push(result.rows[0])
+      const row = result.rows[0]
+      uploadedImages.push({ ...row, image_url: publicUrl })
     }
 
     res.json({
@@ -135,13 +126,15 @@ router.post("/product-image", requireRole(["admin"]), upload.single("image"), as
       })
     }
 
-    const imageUrl = `/uploads/${file.filename}`
-    console.log("[v0] Image uploaded successfully:", imageUrl)
+    const uniqueName = generateUniqueFilename(file.originalname)
+    const objectKey = buildObjectKey({ type: "products", filename: uniqueName })
+    const { publicUrl } = await uploadBufferToGcs({ buffer: file.buffer, destination: objectKey, contentType: file.mimetype })
+    console.log("[v0] Image uploaded successfully:", publicUrl)
 
     res.json({
       success: true,
-      imageUrl,
-      filename: file.filename,
+      imageUrl: publicUrl,
+      filename: objectKey,
       message: "Product image uploaded successfully",
     })
   } catch (error) {
@@ -187,14 +180,16 @@ router.post("/multiple-product-images", requireRole(["admin"]), upload.array("im
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const imageUrl = `/uploads/${file.filename}`
+      const uniqueName = generateUniqueFilename(file.originalname)
+      const objectKey = buildObjectKey({ type: "products", filename: uniqueName })
+      const { publicUrl } = await uploadBufferToGcs({ buffer: file.buffer, destination: objectKey, contentType: file.mimetype })
 
       uploadedImages.push({
         id: `temp-${Date.now()}-${i}`,
-        image_url: imageUrl,
-        imageUrl: imageUrl, // Also provide camelCase version
+        image_url: publicUrl,
+        imageUrl: publicUrl,
         is_primary: i === 0,
-        filename: file.filename,
+        filename: objectKey,
       })
     }
 
@@ -225,14 +220,17 @@ router.post("/profile-image", authenticateToken, upload.single("image"), async (
       return res.status(400).json({ error: "No image uploaded" })
     }
 
-    const imageUrl = `/uploads/${file.filename}`
+    const uniqueName = generateUniqueFilename(file.originalname)
+    const objectKey = buildObjectKey({ type: "profiles", filename: uniqueName })
+    const { publicUrl } = await uploadBufferToGcs({ buffer: file.buffer, destination: objectKey, contentType: file.mimetype })
 
-    // Update user's profile image
-    await query("UPDATE users SET profile_image = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [imageUrl, userId])
+    // Update user's profile image with object key
+    await query("UPDATE users SET profile_image = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [objectKey, userId])
 
     res.json({
       success: true,
-      imageUrl,
+      imageUrl: publicUrl,
+      filename: objectKey,
       message: "Profile image uploaded successfully",
     })
   } catch (error) {
@@ -251,15 +249,17 @@ router.post("/image/profiles", authenticateToken, upload.single("image"), async 
       return res.status(400).json({ error: "No image uploaded" })
     }
 
-    const filename = file.filename
+    const uniqueName = generateUniqueFilename(file.originalname)
+    const objectKey = buildObjectKey({ type: "profiles", filename: uniqueName })
+    const { publicUrl } = await uploadBufferToGcs({ buffer: file.buffer, destination: objectKey, contentType: file.mimetype })
 
-    // Update user's profile image with just the filename
-    await query("UPDATE users SET profile_image = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [filename, userId])
+    await query("UPDATE users SET profile_image = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [objectKey, userId])
 
     res.json({
       success: true,
       data: {
-        avatar_url: filename,
+        avatar_url: publicUrl,
+        object_key: objectKey,
       },
       message: "Profile picture uploaded successfully",
     })
@@ -285,11 +285,8 @@ router.delete("/product-images/:id", requireRole(["admin"]), async (req, res) =>
     // Delete the image record
     await query("DELETE FROM product_images WHERE id = $1", [id])
 
-    // Delete physical file
-    const filePath = path.join(__dirname, "../../", image_url)
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath)
-    }
+    // Attempt delete from GCS (image_url contains objectKey now)
+    await deleteFromGcs(image_url)
 
     if (is_primary) {
       const remainingImages = await query(
@@ -329,12 +326,9 @@ router.delete("/profile-picture", authenticateToken, async (req, res) => {
     // Remove profile image from database
     await query("UPDATE users SET profile_image = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [userId])
 
-    // Delete physical file if it exists
+    // Delete from GCS if set
     if (currentImage) {
-      const filePath = path.join(__dirname, "../../uploads", currentImage)
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath)
-      }
+      await deleteFromGcs(currentImage)
     }
 
     res.json({

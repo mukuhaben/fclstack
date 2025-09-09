@@ -1,6 +1,7 @@
 import express from "express"
 import { query } from "../utils/database.js"
 import { authenticateToken, requireRole } from "../middleware/auth.js"
+import { resolvePublicUrl } from "../utils/images.js"
 
 const router = express.Router()
 
@@ -30,6 +31,9 @@ router.get("/profile", authenticateToken, async (req, res) => {
       last_name: nameParts.slice(1).join(" ") || "",
       phone_number: user.phone, // Frontend expects phone_number
     }
+
+    // Ensure avatar_url is a public URL
+    profileData.avatar_url = resolvePublicUrl(profileData.avatar_url, "profiles")
 
     res.json({
       success: true,
