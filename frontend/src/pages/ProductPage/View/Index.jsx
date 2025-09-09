@@ -55,7 +55,7 @@ const ProductPage = () => {
             name: product.name,
             description: product.description,
             image:
-              product.primaryImage || product.imageUrl || `/placeholder.svg?height=200&width=200&query=product image`,
+              product.image_url || product.primaryImage || product.imageUrl || `/placeholder.svg?height=200&width=200&query=product image`,
             price: product.price || 0,
             pricing_tiers: product.pricingTiers || [],
             category: product.category?.name,

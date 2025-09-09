@@ -353,3 +353,14 @@ router.delete("/profile-picture", authenticateToken, async (req, res) => {
 })
 
 export default router
+// Generic route to support /api/upload/image/:type used by frontend
+router.post("/image/:type", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file
+    if (!file) return res.status(400).json({ error: "No image uploaded" })
+    const imageUrl = `/uploads/${file.filename}`
+    res.json({ success: true, imageUrl, url: imageUrl, image_url: imageUrl })
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Upload failed" })
+  }
+})
